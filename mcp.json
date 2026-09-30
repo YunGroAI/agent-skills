@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "YunGroAI": {
+      "type": "streamableHttp",
+      "url": "https://agent.uboosts.com/mcp"
+    }
+  }
+}
