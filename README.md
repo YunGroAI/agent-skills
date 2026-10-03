@@ -46,6 +46,20 @@ npx skills add /absolute/path/to/agent-skills --skill weixin-official-account-op
 
 如客户端要求授权，按其提示完成；不要将微信密钥或固定令牌写入技能或配置示例。安装技能本身不会自动配置 MCP 连接。
 
+## 更新
+
+每个技能在任务开始时会自动检查新版本（24 小时最多一次，网络不可达时静默跳过）：
+
+- 通过 `npx skills add YunGroAI/agent-skills` 安装的：发现新版本后自动执行 `npx skills update` 并告知更新结果，无需手动操作。
+- 从本地目录安装的：只提示有新版本，需要在本地仓库 `git pull` 后重新执行安装命令。
+- 不想自动更新时设置环境变量 `YUNGROAI_SKILLS_AUTO_UPDATE=0`，仍会提示新版本。
+
+也可以随时手动更新：
+
+```bash
+npx skills update weixin-official-account-operator
+```
+
 ## 连接器元数据
 
 仓库根目录包含 [WorkBuddy 连接器市场](https://open.workbuddy.cn/docs/connector#mcp-skill-%E6%8E%A5%E5%85%A5)所需的元数据，采用 MCP + Skill 接入方式：
@@ -66,4 +80,4 @@ npx skills add /absolute/path/to/agent-skills --skill weixin-official-account-op
 
 ## 编写规范
 
-技能结构、命名、MCP 依赖声明、客户端与机器无关性、连接器元数据字段和提交前人工检查，统一维护在 [AGENTS.md](AGENTS.md)。仓库没有自动校验脚本或 CI。
+技能开发标准统一维护在 [CLAUDE.md](CLAUDE.md)，新建或修改技能的操作步骤见项目技能 [skill-development](.claude/skills/skill-development/SKILL.md)。可自动校验的规则由 CI 流水线 `skills-standard` 检查，例如技能目录有改动时必须递增 `metadata.version`，否则用户收不到更新。

@@ -1,0 +1,194 @@
+# 技能开发标准检查：规则说明见 CLAUDE.md「Skill development standard」
+name: skills-standard
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install checkers
+        run: python -m pip install --quiet pyyaml pyflakes
+
+      - name: Structure, MCP config, links, terms, connector metadata
+        run: |
+          python - <<'PY'
+          import json, re, subprocess, sys, textwrap
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          import yaml
+
+          errors = []
+          err = errors.append
+          TPL = Path(".claude/skills/skill-development/assets")
+          tpl_script = (TPL / "check_update.py").read_bytes()
+          tpl_section = (TPL / "auto-update-section.md").read_text(encoding="utf-8").strip()
+          tpl_mcp = (TPL / "mcp-dependency-section.md").read_text(encoding="utf-8").strip()
+          SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+          NAME = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+          def frontmatter(path):
+              text = path.read_text(encoding="utf-8")
+              parts = text.split("---", 2)
+              if not text.startswith("---") or len(parts) < 3:
+                  err(f"{path}: 缺少 YAML frontmatter")
+                  return {}
+              return yaml.safe_load(parts[1]) or {}
+
+          def json_blocks(text):
+              for block in re.findall(r"```json\n(.*?)```", text, re.S):
+                  try:
+                      yield json.loads(textwrap.dedent(block))
+                  except ValueError:
+                      pass
+
+          # mcp.json：只有一个 YunGroAI streamableHttp 服务器，不带凭据
+          mcp = json.loads(Path("mcp.json").read_text(encoding="utf-8"))
+          expected = {"type": "streamableHttp", "url": "https://agent.uboosts.com/mcp"}
+          if mcp != {"mcpServers": {"YunGroAI": expected}}:
+              err("mcp.json 必须只配置 YunGroAI: " + json.dumps(expected))
+
+          # 每个技能
+          skills = sorted(p for p in Path("skills").iterdir() if p.is_dir())
+          if not skills:
+              err("skills/ 下至少要有一个技能")
+          for skill in skills:
+              md = skill / "SKILL.md"
+              if not md.is_file():
+                  err(f"{skill}: 缺少 SKILL.md")
+                  continue
+              fm = frontmatter(md)
+              name = fm.get("name")
+              if name != skill.name or not NAME.match(str(name)) or len(str(name)) > 64:
+                  err(f"{md}: name 必须与目录名一致，且为不超过 64 个字符的 kebab-case")
+              if not str(fm.get("description") or "").strip():
+                  err(f"{md}: description 不能为空")
+              version = str((fm.get("metadata") or {}).get("version", ""))
+              if not SEMVER.match(version):
+                  err(f"{md}: metadata.version 必须是 semver（如 1.0.0）")
+              extra = set(fm) - {"name", "description", "metadata", "license", "compatibility", "allowed-tools"}
+              if extra:
+                  err(f"{md}: frontmatter 含有非标准字段 {sorted(extra)}")
+              body = md.read_text(encoding="utf-8")
+              if "TODO" in body:
+                  err(f"{md}: 含有 TODO 占位")
+              if tpl_section not in body:
+                  err(f"{md}: 缺少原样的「自动更新」段落（模板 {TPL}/auto-update-section.md）")
+              if tpl_mcp not in body:
+                  err(f"{md}: 缺少原样的「依赖的 MCP 连接」段落（模板 {TPL}/mcp-dependency-section.md）")
+              if mcp not in list(json_blocks(body)):
+                  err(f"{md}: 缺少与 mcp.json 一致的 mcpServers 配置块")
+              script = skill / "scripts" / "check_update.py"
+              if not script.is_file() or script.read_bytes() != tpl_script:
+                  err(f"{script}: 必须与模板 {TPL}/check_update.py 完全一致")
+              for junk in ("_user_meta.json",):
+                  if (skill / junk).exists():
+                      err(f"{skill / junk}: 客户端生成文件，不应提交")
+
+          if mcp not in list(json_blocks(Path("README.md").read_text(encoding="utf-8"))):
+              err("README.md: 缺少与 mcp.json 一致的 mcpServers 配置块")
+
+          # 相对链接
+          md_files = [*Path("skills").rglob("*.md"), Path("README.md"), Path("CLAUDE.md"), Path("AGENTS.md"),
+                      *Path(".claude/skills").rglob("*.md")]
+          for f in md_files:
+              prose = re.sub(r"```.*?```|`[^`\n]*`", "", f.read_text(encoding="utf-8"), flags=re.S)
+              for target in re.findall(r"\]\(([^)\s]+)\)", prose):
+                  target = target.split("#")[0]
+                  if not target or re.match(r"^[a-z]+:", target):
+                      continue
+                  if not (f.parent / target).exists():
+                      err(f"{f}: 链接目标不存在 {target}")
+
+          # 客户端/机器相关内容与内部术语
+          client_terms = ["~/.workbuddy", "present_files", "workbuddy_sites_deploy", "minWorkbuddyVersion",
+                          "127.0.0.1", "localhost", "[::1]", "/Users/", "/home/", "C:\\"]
+          internal_terms = ["litellm", "agent-platform", "weixin-mcp", "aigw.uboosts.com", "x-user-context",
+                            "debug=true", "env=dev"]
+          tracked = subprocess.run(["git", "ls-files", "skills"], capture_output=True, text=True, check=True)
+          distributed = [Path(p) for p in tracked.stdout.split()] + [Path("README.md")]
+          for f in distributed:
+              text = f.read_text(encoding="utf-8", errors="ignore")
+              for term in client_terms + internal_terms:
+                  if term in text:
+                      err(f"{f}: 不允许出现 {term!r}")
+          for f in (Path("mcp.json"), Path("connector-meta.json")):
+              text = f.read_text(encoding="utf-8")
+              for term in internal_terms:
+                  if term in text:
+                      err(f"{f}: 不允许出现 {term!r}")
+
+          # connector-meta.json 与图标
+          meta = json.loads(Path("connector-meta.json").read_text(encoding="utf-8"))
+          for key in ("name", "name_zh", "name_en", "description", "description_zh", "description_en",
+                      "source", "version", "minWorkbuddyVersion", "examples_zh", "examples_en"):
+              if not meta.get(key):
+                  err(f"connector-meta.json: {key} 不能为空")
+          if meta.get("type") != "mcp" or meta.get("source") != "yungroai":
+              err("connector-meta.json: type 必须为 mcp，source 必须为 yungroai")
+          if not SEMVER.match(str(meta.get("version", ""))):
+              err("connector-meta.json: version 必须是 semver")
+          for key in ("examples_zh", "examples_en"):
+              if not 2 <= len(meta.get(key) or []) <= 5:
+                  err(f"connector-meta.json: {key} 需要 2–5 条")
+          try:
+              ET.parse("icon.svg")
+          except (OSError, ET.ParseError) as exc:
+              err(f"icon.svg 无效: {exc}")
+
+          for e in errors:
+              print(f"::error::{e}")
+          sys.exit(1 if errors else 0)
+          PY
+
+      - name: Version bump for changed skills
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          python - <<'PY'
+          import os, re, subprocess, sys
+          from pathlib import Path
+
+          base = os.environ.get("BASE", "")
+          if not base or set(base) == {"0"}:
+              print("没有可比较的 base，跳过版本递增检查")
+              sys.exit(0)
+          VERSION = re.compile(r"^\s+version:\s*['\"]?(\d+\.\d+\.\d+)", re.M)
+
+          def version(text):
+              m = VERSION.search(text.split("---", 2)[1]) if text.startswith("---") else None
+              return tuple(int(x) for x in m.group(1).split(".")) if m else None
+
+          failed = False
+          for skill in sorted(p for p in Path("skills").iterdir() if p.is_dir()):
+              if subprocess.run(["git", "diff", "--quiet", base, "--", str(skill)]).returncode == 0:
+                  continue
+              old = subprocess.run(["git", "show", f"{base}:{skill}/SKILL.md"], capture_output=True, text=True)
+              if old.returncode != 0:
+                  continue  # 新技能
+              before = version(old.stdout)
+              after = version((skill / "SKILL.md").read_text(encoding="utf-8"))
+              if before and (not after or after <= before):
+                  print(f"::error::{skill}: 目录有改动，但 metadata.version 没有递增（{before} → {after}）")
+                  failed = True
+          sys.exit(1 if failed else 0)
+          PY
+
+      - name: Python scripts
+        run: |
+          python -m py_compile skills/*/scripts/*.py .claude/skills/*/assets/*.py
+          python -m pyflakes skills/*/scripts/*.py .claude/skills/*/assets/*.py
