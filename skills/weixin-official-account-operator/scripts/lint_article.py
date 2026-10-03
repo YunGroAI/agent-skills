@@ -77,7 +77,7 @@ def parse(path: Path) -> dict:
     buf_start = 0
 
     def flush() -> None:
-        nonlocal buf, buf_start
+        nonlocal buf
         # 用换行而非空格拼接：列表项各自成句，避免被误判为超长句
         joined = "\n".join(x.strip() for x in buf if x.strip())
         if joined:
@@ -88,10 +88,11 @@ def parse(path: Path) -> dict:
         line = raw.rstrip()
         stripped = line.strip()
 
-        if HEADING_RE.match(stripped):
+        heading = HEADING_RE.match(stripped)
+        if heading:
             flush()
-            level = len(HEADING_RE.match(stripped).group(1))
-            body = HEADING_RE.match(stripped).group(2).strip()
+            level = len(heading.group(1))
+            body = heading.group(2).strip()
             headings.append((idx, level, body))
             if level == 1 and title is None:
                 title = body

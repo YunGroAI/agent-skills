@@ -36,7 +36,7 @@ python3 scripts/render_theme.py --showcase assets/theme-showcase.html   # 生成
 **不要盲信第一名**：
 
 - 前两名分差 ≤ 3，或内容明显跨领域（如「技术+活动」）时，用两套主题各渲染一版，
-  用 present_files 打开 `assets/theme-showcase.html` 让用户直接看效果再选。
+  在本地打开 `assets/theme-showcase.html` 让用户直接看效果再选。
 - 需要混搭时：以一套的版式骨架为 `--theme`，用另一套的强调色作 `--accent`，
   不要自己拼出一堆新颜色。
 

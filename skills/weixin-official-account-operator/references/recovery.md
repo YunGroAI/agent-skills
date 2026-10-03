@@ -61,7 +61,7 @@
 
 ## 通用原则
 
-- 失败汇报三件套：真实 code（含 `wechat_errcode`）、`retryable` 判断、用户下一步具体动作或替代路径。
+- 失败汇报四件套：真实 code（含 `wechat_errcode`）、`retryable` 判断、`source_ip`（若有）、用户下一步具体动作或替代路径。
 - 结果未知时查原操作，不换幂等键重发；`publish_id` 只代表已提交，不等于已发表。
 - 只查询本人的操作和用量（`weixin_core_get_usage_summary`）。普通公众号运营不调用 weixin_admin 工具，
   安装技能不会提权。

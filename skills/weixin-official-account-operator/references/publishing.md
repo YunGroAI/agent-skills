@@ -35,7 +35,7 @@
 **阶段 A（自由，可反复，不联网）**
 
 1. Markdown 定稿后一条命令 `scripts/build_article.py 正文.md -o out.html` 完成体检（ERROR 清零才渲染）+ 主题推荐 + 渲染；
-2. 用 present_files 把本地 HTML 给用户看真实版式；
+2. 在本地打开 HTML 给用户看真实版式；
 3. 按 [配图规划](imagery.md) 生成图片并用 `scripts/prepare_image.py` 本地处理达标；
 4. 需要修改就在本地改，改到第 N 版都不产生任何外部副作用。
 
@@ -151,7 +151,7 @@ $PY scripts/prepare_image.py ./wx_images --check-only                  # 自检�
 
 ### 手动通道（图片链路不通时的兜底）
 
-生成带 `<img>` 的完整版 HTML，用 present_files 打开，让用户 `⌘A` 全选 → 复制 → 粘进公众号后台编辑器，
+生成带 `<img>` 的完整版 HTML，在浏览器中打开，让用户全选（⌘A / Ctrl+A） → 复制 → 粘进公众号后台编辑器，
 后台会自动抓取上传图片；封面在后台单独上传设置。**不要谎称图已经进草稿了。**
 
 ## 草稿写入与核对
@@ -192,7 +192,7 @@ $PY scripts/prepare_image.py ./wx_images --check-only                  # 自检�
    两条路都拿不到，就不要猜。拿到后可用 `weixin_oa_get_follower_info`（`openids` 数组）核对是不是本人。
 3. **拿不到 openid 或 `preview_enabled=false` 时，用 `weixin_oa_get_draft` 返回的 `url`**
    （带 `tempkey` 的 `mp.weixin.qq.com/s?...`）作为预览——微信内打开可见真实排版，但要提醒**有时效**。
-   同时可以生成一份所见即所得的本地 HTML 用 present_files 展示给用户看版式。
+   同时可以在本地打开所见即所得的 HTML 给用户看版式。
 4. 明确告知用户是否真的发送了微信预览，不要把本地预览说成微信预览。
 
 ## 发表

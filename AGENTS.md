@@ -6,7 +6,8 @@ This repository contains reusable Agent Skills for the YunGroAI growth engine MC
 
 ## Build, Test, and Development Commands
 
-- `npx skills add /absolute/path/to/agent-skills --skill weixin-official-account-operator` installs the local skill into the current project. Add `-g` for a global install. It does not configure the MCP connection.
+- `npx skills add YunGroAI/agent-skills --skill weixin-official-account-operator` installs the skill from the public GitHub repository (https://github.com/YunGroAI/agent-skills) into the current project.
+- `npx skills add /absolute/path/to/agent-skills --skill weixin-official-account-operator` installs the skill from a local checkout. For either source, add `--list` to list skills or `-g` for a global install. Installing a skill does not configure the MCP connection.
 
 ## Coding Style & Naming Conventions
 
