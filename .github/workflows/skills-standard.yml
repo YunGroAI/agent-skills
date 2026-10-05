@@ -35,9 +35,8 @@ jobs:
           errors = []
           err = errors.append
           TPL = Path(".claude/skills/skill-development/assets")
-          tpl_script = (TPL / "check_update.py").read_bytes()
-          tpl_section = (TPL / "auto-update-section.md").read_text(encoding="utf-8").strip()
-          tpl_mcp = (TPL / "mcp-dependency-section.md").read_text(encoding="utf-8").strip()
+          tpl_preflight = (TPL / "preflight-section.md").read_text(encoding="utf-8").strip()
+          MANAGER = "yungroai-skills"
           SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
           NAME = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
@@ -64,8 +63,10 @@ jobs:
 
           # 每个技能
           skills = sorted(p for p in Path("skills").iterdir() if p.is_dir())
-          if not skills:
-              err("skills/ 下至少要有一个技能")
+          if not (Path("skills") / MANAGER / "scripts" / "sync.py").is_file():
+              err(f"缺少 skills/{MANAGER}（含 scripts/sync.py）：MCP 依赖与技能同步只在这里定义")
+          if not [p for p in skills if p.name != MANAGER]:
+              err("skills/ 下至少要有一个业务技能")
           for skill in skills:
               md = skill / "SKILL.md"
               if not md.is_file():
@@ -86,15 +87,14 @@ jobs:
               body = md.read_text(encoding="utf-8")
               if "TODO" in body:
                   err(f"{md}: 含有 TODO 占位")
-              if tpl_section not in body:
-                  err(f"{md}: 缺少原样的「自动更新」段落（模板 {TPL}/auto-update-section.md）")
-              if tpl_mcp not in body:
-                  err(f"{md}: 缺少原样的「依赖的 MCP 连接」段落（模板 {TPL}/mcp-dependency-section.md）")
-              if mcp not in list(json_blocks(body)):
-                  err(f"{md}: 缺少与 mcp.json 一致的 mcpServers 配置块")
-              script = skill / "scripts" / "check_update.py"
-              if not script.is_file() or script.read_bytes() != tpl_script:
-                  err(f"{script}: 必须与模板 {TPL}/check_update.py 完全一致")
+              if skill.name == MANAGER:
+                  if mcp not in list(json_blocks(body)):
+                      err(f"{md}: 缺少与 mcp.json 一致的 mcpServers 配置块")
+              else:
+                  if tpl_preflight not in body:
+                      err(f"{md}: 缺少原样的「前置检查」段落（模板 {TPL}/preflight-section.md）")
+                  if "mcpServers" in body or (skill / "scripts" / "check_update.py").exists():
+                      err(f"{md}: 业务技能不得重复定义 MCP 配置或更新逻辑，统一由 {MANAGER} 负责")
               for junk in ("_user_meta.json",):
                   if (skill / junk).exists():
                       err(f"{skill / junk}: 客户端生成文件，不应提交")
@@ -190,5 +190,5 @@ jobs:
 
       - name: Python scripts
         run: |
-          python -m py_compile skills/*/scripts/*.py .claude/skills/*/assets/*.py
-          python -m pyflakes skills/*/scripts/*.py .claude/skills/*/assets/*.py
+          python -m py_compile skills/*/scripts/*.py
+          python -m pyflakes skills/*/scripts/*.py

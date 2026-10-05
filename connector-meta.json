@@ -7,7 +7,7 @@
   "description_en": "Operate WeChat Official Accounts with natural language: topic briefing, benchmarking against trending articles, viral-style rewriting, themed layout and imagery, drafts and publishing, follower messaging, and performance review.",
   "source": "yungroai",
   "type": "mcp",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "minWorkbuddyVersion": "4.24.0",
   "examples_zh": [
     "帮我给公众号写一篇 AI Agent 落地实践的文章，先找同赛道热门文章参考逻辑，排好版放进草稿箱",
