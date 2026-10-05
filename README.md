@@ -4,6 +4,7 @@
 
 | 技能 | 用途 |
 |---|---|
+| `yungroai-skills` | 技能管家：所有技能共用的前置检查——确认 `YunGroAI` MCP 连接（未安装时引导在当前 Agent 中安装），并同步整个技能仓库（更新已装技能、自动安装新技能） |
 | `weixin-official-account-operator` | 公众号增长运营：主题锁定、热门文章对标与爆文逻辑改写、写作、排版与配图、草稿与发表、私信与粉丝运营、数据复盘 |
 
 `weixin-official-account-operator` 要点：
@@ -17,21 +18,25 @@
 
 推荐使用 [Vercel Labs 的 skills CLI](https://github.com/vercel-labs/skills) 安装。需要 Node.js 和 `npx`。支持从公开 GitHub 仓库或本地目录安装，在目标项目目录中运行对应命令即可。
 
-**从公开仓库安装**（推荐，仓库地址 [YunGroAI/agent-skills](https://github.com/YunGroAI/agent-skills)）：
+**从公开仓库安装**（推荐，仓库地址 [YunGroAI/agent-skills](https://github.com/YunGroAI/agent-skills)）。只需安装入口技能 `yungroai-skills`：
 
 ```bash
-npx skills add YunGroAI/agent-skills --skill weixin-official-account-operator
+npx skills add YunGroAI/agent-skills --skill yungroai-skills
 ```
 
-**从本地目录安装**（适合本地调试或离线使用，先克隆或下载本仓库）：
+安装后对 Agent 说一句“初始化 YunGroAI 技能”（或直接提出公众号运营等需求），它会检查并引导安装 `YunGroAI` MCP 连接，并自动安装仓库中的全部技能；之后仓库新增的技能也会自动装上。新装的技能如未被识别，开启新会话即可。
+
+也可以一次装全部技能：`npx skills add YunGroAI/agent-skills --skill '*'`。
+
+**从本地目录安装**（适合本地调试或离线使用，先克隆或下载本仓库；不支持自动同步）：
 
 ```bash
-npx skills add /absolute/path/to/agent-skills --skill weixin-official-account-operator
+npx skills add /absolute/path/to/agent-skills --skill '*'
 ```
 
 安装前可用 `npx skills add YunGroAI/agent-skills --list`（或把来源换成本地路径）查看可用技能。CLI 默认安装到当前项目；需要在所有项目中使用时，加 `-g` 全局安装。按 CLI 提示选择目标 Agent 和安装方式。
 
-技能**自包含声明**它所依赖的 MCP，且**与客户端无关**：即使单独安装某个技能目录，也能从技能内部拿到完整连接配置；WorkBuddy、Claude Code / Claude Desktop、Codex 或任何支持 MCP 的客户端都能使用，使用客户端中名为 `YunGroAI` 的连接即可，也支持用户自行配置的同名本地调试服务，无需替换为远程地址。技能按名称识别依赖，不核对实际地址或证书；名称匹配不代表服务身份认证。未配置时，按技能内的默认远程配置引导安装；已配置但不可用时引导重连或排障，不要当成公众号账号无权限。默认远程配置如下：
+MCP 依赖统一由 `yungroai-skills` 声明和检查，各业务技能开始任务前都会先交给它做前置检查；单独安装了业务技能时，会先引导安装 `yungroai-skills`。技能**与客户端无关**：WorkBuddy、Claude Code / Claude Desktop、Codex 或任何支持 MCP 的客户端都能使用，使用客户端中名为 `YunGroAI` 的连接即可，也支持用户自行配置的同名本地调试服务，无需替换为远程地址。技能按名称识别依赖，不核对实际地址或证书；名称匹配不代表服务身份认证。未配置时，`yungroai-skills` 按默认远程配置引导在当前 Agent 中安装（Agent 能自行添加时征得同意后代为添加）；已配置但不可用时引导重连或排障，不要当成公众号账号无权限。默认远程配置如下：
 
 ```json
 {
@@ -44,20 +49,20 @@ npx skills add /absolute/path/to/agent-skills --skill weixin-official-account-op
 }
 ```
 
-如客户端要求授权，按其提示完成；不要将微信密钥或固定令牌写入技能或配置示例。安装技能本身不会自动配置 MCP 连接。
+连接使用标准 MCP OAuth 浏览器授权：添加连接后，`yungroai-skills` 会主动触发授权并自动打开浏览器，用户登录 YunGroAI 账号并同意即可，无需填写任何 client id、密钥或令牌；不要将微信密钥或固定令牌写入技能或配置示例。安装技能本身不会自动配置 MCP 连接。
 
 ## 更新
 
-每个技能在任务开始时会自动检查新版本（24 小时最多一次，网络不可达时静默跳过）：
+更新由 `yungroai-skills` 统一负责：任何 YunGroAI 技能开始任务时，`yungroai-skills` 会同步整个仓库（24 小时最多一次，网络不可达时静默跳过）：
 
-- 通过 `npx skills add YunGroAI/agent-skills` 安装的：发现新版本后自动执行 `npx skills update` 并告知更新结果，无需手动操作。
-- 从本地目录安装的：只提示有新版本，需要在本地仓库 `git pull` 后重新执行安装命令。
-- 不想自动更新时设置环境变量 `YUNGROAI_SKILLS_AUTO_UPDATE=0`，仍会提示新版本。
+- 通过 `npx skills add YunGroAI/agent-skills` 安装的：已装技能有新版本时自动执行 `npx skills update`；仓库新增的技能自动安装到当前 Agent；完成后告知结果。仓库中已删除的技能只提示，不自动删除。
+- 从本地目录或客户端市场安装的：只提示有更新，需要在本地仓库 `git pull` 后重新执行安装命令，或改用 GitHub 方式安装。
+- 不想自动同步时设置环境变量 `YUNGROAI_SKILLS_AUTO_UPDATE=0`，仍会提示更新。
 
 也可以随时手动更新：
 
 ```bash
-npx skills update weixin-official-account-operator
+npx skills update
 ```
 
 ## 连接器元数据
@@ -70,8 +75,8 @@ npx skills update weixin-official-account-operator
 ├── mcp.json                     # MCP Server 连接配置（streamableHttp）
 ├── icon.svg                     # 市场图标（云穹 AI 图形标）
 └── skills/
+    ├── yungroai-skills/       # 前置检查：MCP 依赖 + 技能同步
     └── weixin-official-account-operator/
-        └── SKILL.md
 ```
 
 这些文件只用于 WorkBuddy 连接器市场分发，技能本身不依赖它们。
