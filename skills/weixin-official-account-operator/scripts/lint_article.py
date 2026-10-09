@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""公众号成稿体检：检查手机阅读节奏、开场钩子、生硬表达和结构元素。
+"""公众号成稿体检：检查手机阅读节奏、开场钩子、生硬表达、AI 句式、人味信号、广告法极限词和结构元素。
 
 用法：
   python3 scripts/lint_article.py 正文.md
@@ -36,6 +36,7 @@ OPENING_CLICHE = [
     "随着", "在当今", "近年来", "众所周知", "综上所述", "众所周知的是",
     "随着社会", "随着时代", "在当下", "伴随着", "日益", "愈发", "不难看出",
     "什么是", "本文将介绍", "本文旨在", "前言", "背景介绍",
+    "在这个", "你是否也曾", "你是否曾经", "你有没有想过",
 ]
 
 # 公文腔 / AI 腔高频词（命中即提示，按出现次数分级）
@@ -45,7 +46,36 @@ STIFF_WORDS = [
     "有效提升", "显著改善", "高度重视", "大力推动", "落到实处", "走深走实",
     "综上所述", "值得注意的是", "由此可见", "不难发现", "众所周知",
     "具有重要意义", "发挥着重要作用", "保驾护航", "再上新台阶", "开启新篇章",
+    "总而言之", "总的来说", "让我们一起", "不可或缺", "至关重要", "不言而喻", "毋庸置疑",
+    "与此同时", "深入探讨", "全面解析", "一文读懂", "息息相关", "重中之重",
 ]
+
+# AI 句式：单个出现无妨，成批出现就是"机器腔"（名称, 正则, 允许出现的次数上限）
+AI_PATTERNS = [
+    ("「不是…而是…」", r"不是[^。！？!?\n]{1,30}而是", 1),
+    ("序号连接词（首先/其次/再次）", r"首先|其次|再次|最后，", 2),
+    ("「不仅…更/还…」递进", r"不仅[^。！？!?\n]{1,30}(更|还|也|而且)", 1),
+    ("连续反问（你是不是/你有没有/你是否）", r"你是不是|你有没有|你是否", 2),
+    ("破折号", r"——", 3),
+    ("升华套话（更是一种/值得我们/每个人都应该）", r"更是一种|值得我们|每个人都应该|这正是|意味着什么", 1),
+]
+
+# 总结式结尾（出现在最后 150 字即提示）
+SUMMARY_ENDING = ["总之", "总而言之", "综上", "总的来说", "希望本文", "希望这篇", "希望以上",
+                  "希望对你有", "让我们一起", "感谢阅读", "以上就是"]
+
+# 广告法极限词与效果承诺（转化文必查；"第一步""最后"等正常用法已排除）
+AD_EXTREME = [
+    r"最佳", r"最强", r"最好用", r"最低价", r"最高级", r"全网最", r"史上最", r"顶级", r"国家级",
+    r"世界级", r"100%", r"百分百", r"绝对有效", r"万能", r"首选", r"零风险", r"唯一",
+    r"第一(?![步次天个章篇段句眼时件回轮周年批位条种类点部集期届名])",
+]
+
+# 人味信号：第一人称、原话、具体时间
+FIRST_PERSON_RE = re.compile(r"我|我们")
+QUOTE_SPEECH_RE = re.compile(r"[「“\"][^」”\"]{2,60}[」”\"]")
+CONCRETE_TIME_RE = re.compile(
+    r"\d+\s*点|凌晨|上午|中午|下午|傍晚|晚上|昨天|前天|上周|上个月|去年|那天|那晚|周[一二三四五六日末]|星期")
 
 # 抽象形容词：可用但成堆出现说明不具体
 ABSTRACT_WORDS = ["重要", "关键", "核心", "高效", "优质", "全面", "专业", "领先", "创新", "系统性地"]
@@ -208,9 +238,9 @@ def check(doc: dict) -> tuple[list[dict], dict]:
     if hits:
         add("ERROR", "开场套话", f"首屏命中：{'、'.join(sorted(set(hits)))}",
             "换成具体场景、一句冲突、一个数字或一句结论开头，删掉铺垫")
-    if "你" not in head_plain:
-        add("WARN", "首屏没点名读者", "前 120 字没有出现「你」",
-            "首屏要让读者对号入座，写出他此刻的处境")
+    if "你" not in head_plain and "我" not in head_plain:
+        add("INFO", "首屏没有人", "前 120 字既没有「你」也没有「我」",
+            "首屏要么让读者对号入座，要么让作者带着一个具体场景出场")
     if not re.search(r"\d", head_plain):
         add("INFO", "首屏无数字", "前 120 字没有具体数字", "放一个可感知的数字能显著提高停留（有真实数据时再加）")
 
@@ -266,11 +296,57 @@ def check(doc: dict) -> tuple[list[dict], dict]:
         add("WARN", "抽象词偏多", "、".join(f"{w}×{c}" for w, c in abstract_hits[:6]),
             "每个抽象判断后面补一个具体例子或数字，否则删掉这个判断")
 
-    # 8. 结构元素
+    # 8. AI 句式
+    ai_hits = []
+    for name, pattern, allowed in AI_PATTERNS:
+        c = len(re.findall(pattern, body))
+        if c > allowed:
+            ai_hits.append((name, c))
+    if ai_hits:
+        add("ERROR" if len(ai_hits) >= 3 else "WARN", "AI 句式",
+            "、".join(f"{n}×{c}" for n, c in ai_hits),
+            "按 references/voice.md 的 AI 味清单逐条改：删序号词、拆排比、少用「不是…而是…」，直接说结论")
+
+    tail = body[-150:]
+    endings = [w for w in SUMMARY_ENDING if w in tail]
+    if endings:
+        add("WARN", "总结式结尾", f"结尾出现：{'、'.join(endings)}",
+            "删掉总结段，回到开头的场景，或给一个读者能回答的问题/立刻可做的一步")
+
+    # 9. 人味信号
+    signals = {
+        "第一人称": bool(FIRST_PERSON_RE.search(body)),
+        "原话/对话": bool(QUOTE_SPEECH_RE.search(doc["text"])),
+        "具体时间": bool(CONCRETE_TIME_RE.search(body)),
+    }
+    metrics["人味信号"] = "、".join(k for k, v in signals.items() if v) or "无"
+    if total > 600 and sum(signals.values()) == 0:
+        add("WARN", "缺少人味信号", "全文没有第一人称、原话或具体时间",
+            "补一个真实场景：谁、在什么时候、说了什么（见 references/voice.md 素材采访）")
+
+    lens = [char_count(p) for _, p in doc["paragraphs"]]
+    if len(lens) >= 6:
+        mean = sum(lens) / len(lens)
+        cv = (sum((x - mean) ** 2 for x in lens) / len(lens)) ** 0.5 / mean if mean else 0
+        if cv < 0.25:
+            add("INFO", "段落长度过于均匀", f"{len(lens)} 段长度几乎一样（变异系数 {cv:.2f}）",
+                "长短段交错，允许一句话成段制造停顿")
+
+    # 10. 广告法极限词
+    ad_hits = []
+    for pattern in AD_EXTREME:
+        found = re.findall(pattern, body)
+        if found:
+            ad_hits.append((re.sub(r"\(.*", "", pattern), len(found)))
+    if ad_hits:
+        add("WARN", "极限词/效果承诺", "、".join(f"{w}×{c}" for w, c in ad_hits),
+            "广告法风险词：换成可验证的事实描述；确属正常用法（如引用原话）可保留并说明")
+
+    # 11. 结构元素
     tail = body[-200:]
     if not re.search(r"[？?]", tail):
-        add("WARN", "结尾没有互动", "最后 200 字没有问句",
-            "结尾抛一个读者能回答的问题，或给一个立刻可做的一步；不要写「感谢阅读」")
+        add("INFO", "结尾没有问句", "最后 200 字没有问句",
+            "结尾可以抛一个读者能回答的问题、给一个立刻可做的一步，或回到开头场景；不要写「感谢阅读」")
     if doc["cards"] == 0 and total > 800:
         add("INFO", "缺结论卡", "全文没有 :::card", "把最该被记住的一句话做成结论卡，方便截图传播")
     if doc["ctas"] == 0:
