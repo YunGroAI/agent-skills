@@ -74,7 +74,7 @@
 ## 排版策略
 
 **主题（配色 + 版式骨架）先按 [主题风格模版](themes.md) 定下来，再回到本节处理图片、草稿和发表。**
-Playbook 的 `preferred_layout` 映射到主题 id：`professional`→`professional`、`knowledge`→`academic`、
+用户偏好的版式映射到主题 id：`professional`→`professional`、`knowledge`→`academic`、
 `story`→`warm`；用户给了品牌色时用 `--primary` 从最接近的主题派生。
 渲染统一走 `scripts/build_article.py`（内部调用 `render_theme.py`，自动推荐主题 → 输出微信安全的内联样式 HTML），不要每次手写 HTML。
 
@@ -185,12 +185,11 @@ $PY scripts/prepare_image.py ./wx_images --check-only                  # 自检�
 预览属于**对外动作**（会给真人发一条消息），先复述账号与接收人、取得确认再发；
 草稿还没建立时只能给本地 HTML 预览，不存在“先预览再写草稿”的顺序。
 
-1. 只在 `weixin_core_get_service_capabilities` 返回的 `preview_enabled` 为真时调用
-   `weixin_oa_preview_draft`，且必须明确接收人。
+1. 调用 `weixin_oa_preview_draft` 前必须明确接收人；返回 `CAPABILITY_UNVERIFIED` 表示该部署未开启预览。
 2. `preview_draft` 需要 `recipient_openid`。取 openid 的顺序：`weixin_oa_list_followers` →
    若返回 48001（很常见），请用户给公众号发一条消息，再查 `weixin_oa_list_recent_messages` 取返回中的用户标识。
    两条路都拿不到，就不要猜。拿到后可用 `weixin_oa_get_follower_info`（`openids` 数组）核对是不是本人。
-3. **拿不到 openid 或 `preview_enabled=false` 时，用 `weixin_oa_get_draft` 返回的 `url`**
+3. **拿不到 openid 或预览未开启时，用 `weixin_oa_get_draft` 返回的 `url`**
    （带 `tempkey` 的 `mp.weixin.qq.com/s?...`）作为预览——微信内打开可见真实排版，但要提醒**有时效**。
    同时可以在本地打开所见即所得的 HTML 给用户看版式。
 4. 明确告知用户是否真的发送了微信预览，不要把本地预览说成微信预览。

@@ -19,14 +19,12 @@
 | CAPABILITY_UNVERIFIED | false | 该部署尚未验证此能力契约 | 明确能力未验收，不改开关、不换接口绕过 |
 | IDEMPOTENCY_CONFLICT | false | 幂等键已用于不同参数 | 检查是否错误复用键，不自动换键重复动作 |
 | CONTENT_CHANGED | false | 草稿已变化 | 重新 `weixin_oa_get_draft` 取最新 `draft_digest`，重新取得批准 |
-| PLAYBOOK_CHANGED | false | 运营画像已变化 | 重新读取 Playbook，展示新旧差异并取得批准，不用空摘要覆盖 |
 | INVALID_DATE_RANGE | false | 日期不合法 | 区间有序、最多 7 天、早于北京时间今天；发表数据仅 2025-11-01 及之后 |
 | INVALID_IMAGE_URL | false | 图片地址不合规 | 必须是无用户信息的 HTTPS 公网地址，换地址再传 |
 | INVALID_IMAGE | false | 服务端取图失败或地址被判不安全 | 做第三方图对照测试判定故障层，见 publishing.md |
-| INVALID_MENU | false | 一级菜单标题超过 16 字节 | 缩短标题后重设菜单 |
 | MESSAGE_WINDOW_CLOSED | false | 无已验证的 48 小时用户消息窗口 | 不能发送客服消息；请用户重新发消息开启窗口，不换渠道触达 |
-| BUSY | **true** | 资源正在处理中 | 用 `weixin_core_list_operations` / `weixin_core_get_operation` 查终态，别盲目重发；实测最终多为 failed |
-| OPERATION_OUTCOME_UNKNOWN | false | 资源锁已失效，结果未知 | 同上核查原操作，不换键重发 |
+| BUSY | **true** | 资源正在处理中 | 用同一幂等键原样重放取已记录结果；仍未知就用读取工具（如 `weixin_oa_list_drafts`、`weixin_oa_get_publish_status`）核实，别换键重发；实测最终多为 failed |
+| OPERATION_OUTCOME_UNKNOWN | false | 结果未知或仍在执行 | 用读取工具或微信后台核实实际状态，不换键重发 |
 | RESULT_EXPIRED | false | 操作已执行但结果缓存过期 | 查询微信侧实际状态，不当成未执行 |
 | RATE_LIMITED | **true** | 请求过于频繁 | 遵守提示等待（通常 1 分钟），不并发轰炸 |
 
@@ -39,7 +37,7 @@
 | 45009 | RATE_LIMITED | 等待后重试 |
 | 48001 / 61007 | INSUFFICIENT_SCOPE | 见下方「资质限制」 |
 | 40164 / 61004 | IP_NOT_WHITELISTED | 见下方「IP 白名单」 |
-| -1 | WECHAT_BUSY | 稍后用 `weixin_core_get_operation` 查终态 |
+| -1 | WECHAT_BUSY | 稍后用同一幂等键重放或用读取工具核实，不换键重发 |
 | 其它（40005、40113 等） | WECHAT_REJECTED | 报出原始 `wechat_errcode`；40005/40113 先做第三方图对照，详见 publishing.md |
 
 ### IP 白名单（40164 / 61004）

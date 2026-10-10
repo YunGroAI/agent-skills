@@ -5,7 +5,7 @@
 ## 数据读取
 
 - 先用 `weixin_oa_list_published_articles` 确认文章和发布时间，按需用 `weixin_oa_get_published_article` 读取标题、摘要、正文与排版。
-- 单日用 `weixin_oa_get_article_stats`（必填 `day`），连续区间用 `weixin_oa_get_article_stats_range`（必填 `begin_date`/`end_date`）。
+- 统计用 `weixin_oa_get_article_stats_range`（必填 `begin_date`/`end_date`，单日时两者相同）。
   区间不合法会报 `INVALID_DATE_RANGE`：日期需有序、**最多 7 天**、**早于北京时间今天**，
   且发表数据仅支持 **2025-11-01 及之后**。
 - 粉丝变化用 `weixin_oa_get_follower_trend`，同样最多 7 天。保留微信原始字段、日期和口径，区分 0 和缺失值。
@@ -34,4 +34,4 @@
 3. **可能原因**：结合标题、选题、开头、结构、排版、CTA 和发布条件提出可验证假设。
 4. **不确定因素**：列出缺失数据、不可比样本和可能的外部影响。
 5. **下一轮实验**：提出 1–3 个一次只改一个主要变量的实验，明确预期信号和观察周期。
-6. **下一轮选题**：把数据、私信反馈和 Playbook 合并为 3 个候选方向。
+6. **下一轮选题**：把数据、私信反馈和用户偏好合并为 3 个候选方向。
