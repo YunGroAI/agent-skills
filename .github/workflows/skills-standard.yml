@@ -63,8 +63,10 @@ jobs:
 
           # 每个技能
           skills = sorted(p for p in Path("skills").iterdir() if p.is_dir())
-          if not (Path("skills") / MANAGER / "scripts" / "sync.py").is_file():
-              err(f"缺少 skills/{MANAGER}（含 scripts/sync.py）：MCP 依赖与技能同步只在这里定义")
+          if not (Path("skills") / MANAGER / "SKILL.md").is_file():
+              err(f"缺少 skills/{MANAGER}：MCP 依赖与技能安装方式只在这里定义")
+          if (Path("skills") / MANAGER / "scripts" / "sync.py").exists():
+              err(f"skills/{MANAGER}/scripts/sync.py 已废弃：技能统一用 npx skills add 安装和更新")
           if not [p for p in skills if p.name != MANAGER]:
               err("skills/ 下至少要有一个业务技能")
           for skill in skills:

@@ -4,7 +4,7 @@
 
 | 技能 | 用途 |
 |---|---|
-| `yungroai-skills` | 技能管家：所有技能共用的前置检查——确认 `YunGroAI` MCP 连接（未安装时引导在当前 Agent 中安装），并同步整个技能仓库（更新已装技能、自动安装新技能） |
+| `yungroai-skills` | 技能管家：所有技能共用的前置检查——确认 `YunGroAI` MCP 连接（未安装时引导在当前 Agent 中安装），并给出标准的技能安装与更新命令 |
 | `weixin-official-account-operator` | 公众号增长运营：主题锁定、热门文章对标与爆文逻辑改写、有人味的写作与去 AI 味改稿、场景模板与标题评分、排版与配图、草稿与发表、私信与粉丝运营、数据复盘 |
 
 `weixin-official-account-operator` 要点：
@@ -19,17 +19,16 @@
 
 推荐使用 [Vercel Labs 的 skills CLI](https://github.com/vercel-labs/skills) 安装。需要 Node.js 和 `npx`。支持从公开 GitHub 仓库或本地目录安装，在目标项目目录中运行对应命令即可。
 
-**从公开仓库安装**（推荐，仓库地址 [YunGroAI/agent-skills](https://github.com/YunGroAI/agent-skills)）。只需安装入口技能 `yungroai-skills`：
+**从公开仓库安装**（推荐，仓库地址 [YunGroAI/agent-skills](https://github.com/YunGroAI/agent-skills)）。一次装好全部技能：
 
 ```bash
-npx skills add YunGroAI/agent-skills --skill yungroai-skills
+npx skills add YunGroAI/agent-skills --skill '*' -g -y
 ```
 
-安装后对 Agent 说一句“初始化 YunGroAI 技能”（或直接提出公众号运营等需求），它会检查并引导安装 `YunGroAI` MCP 连接，并自动安装仓库中的全部技能；之后仓库新增的技能也会自动装上。新装的技能如未被识别，开启新会话即可。
+`-g` 装到用户级，所有项目都能用；可加 `-a <Agent 名称>`（如 `claude-code`、`codex`、`cursor`）指定目标 Agent。
+装好后按下文添加 `YunGroAI` 连接；新装的技能如未被识别，开启新会话即可。
 
-也可以一次装全部技能：`npx skills add YunGroAI/agent-skills --skill '*'`。
-
-**从本地目录安装**（适合本地调试或离线使用，先克隆或下载本仓库；不支持自动同步）：
+**从本地目录安装**（适合本地调试或离线使用，先克隆或下载本仓库）：
 
 ```bash
 npx skills add /absolute/path/to/agent-skills --skill '*'
@@ -54,13 +53,15 @@ MCP 依赖统一由 `yungroai-skills` 声明和检查，各业务技能开始任
 
 ## 更新
 
-更新由 `yungroai-skills` 统一负责：任何 YunGroAI 技能开始任务时，`yungroai-skills` 会同步整个仓库（24 小时最多一次，网络不可达时静默跳过）：
+没有自动同步脚本，统一用 skills CLI 更新。重新执行安装命令即可：缺少的技能（包括仓库新增的技能）会装上，已装技能会更新到最新版本。
 
-- 通过 `npx skills add YunGroAI/agent-skills` 安装的：已装技能有新版本时自动执行 `npx skills update`；仓库新增的技能自动安装到当前 Agent；完成后告知结果。仓库中已删除的技能只提示，不自动删除。
-- 从本地目录或客户端市场安装的：只提示有更新，需要在本地仓库 `git pull` 后重新执行安装命令，或改用 GitHub 方式安装。
-- 不想自动同步时设置环境变量 `YUNGROAI_SKILLS_AUTO_UPDATE=0`，仍会提示更新。
+```bash
+npx skills add YunGroAI/agent-skills --skill '*' -g -y
+```
 
-也可以随时手动更新：
+仓库中已删除的技能不会被自动删除，需要时用 `npx skills remove` 删除。从本地目录安装的，在本地仓库 `git pull` 后重新执行安装命令。
+
+只更新已装技能：
 
 ```bash
 npx skills update
@@ -76,7 +77,7 @@ npx skills update
 ├── mcp.json                     # MCP Server 连接配置（streamableHttp）
 ├── icon.svg                     # 市场图标（云穹 AI 图形标）
 └── skills/
-    ├── yungroai-skills/       # 前置检查：MCP 依赖 + 技能同步
+    ├── yungroai-skills/       # 前置检查：MCP 依赖 + 安装与更新方式
     └── weixin-official-account-operator/
 ```
 
