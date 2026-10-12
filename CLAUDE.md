@@ -13,15 +13,14 @@ Distributable Agent Skills for the **YunGroAI growth engine MCP**, published at 
 Install skills (Vercel Labs `skills` CLI; needs Node.js/`npx`). Add `--list` to list skills, `-g` for a global install. Installing a skill never configures the MCP connection.
 
 ```bash
-npx skills add YunGroAI/agent-skills --skill '*'                                       # all skills from GitHub (auto-synced)
+npx skills add YunGroAI/agent-skills --skill '*'                                       # all skills from GitHub; rerun to update and pick up new skills
 npx skills add YunGroAI/agent-skills --skill yungroai-skills weixin-official-account-operator
-npx skills add /absolute/path/to/agent-skills --skill '*'                              # local checkout (no auto-sync)
+npx skills add /absolute/path/to/agent-skills --skill '*'                              # local checkout
 ```
 
 Skill-local scripts (run from the skill directory; pure local, no side effects beyond the output path):
 
 ```bash
-python3 scripts/sync.py --check-only --force           # manager: whole-repo sync check (see Manager)
 python3 scripts/build_article.py article.md -o out.html [--theme tech | --primary #RRGGBB]  # weixin: lint → theme → render
 python3 scripts/lint_article.py article.md
 python3 scripts/render_theme.py --list                 # or --suggest / --showcase out.html / --print-tokens
@@ -35,7 +34,7 @@ Run the CI checks locally with [`act`](https://github.com/nektos/act): `act pull
 - **Root connector packaging** — `mcp.json` (single `YunGroAI` streamableHttp server), `connector-meta.json` (WorkBuddy market listing), `icon.svg`. Skills never read these at runtime.
 - **Skills are installed per directory** — `npx skills add` installs only `skills/<name>/`, so a skill must not reference repo files outside its directory. Business skills depend on the sibling skill `yungroai-skills` by name only.
 - **Skill layout** — `SKILL.md` is a router (task type → which reference to read, prerequisites, hard constraints); long procedures live in `references/*.md`; `assets/` and `scripts/` hold skill-specific data and tools.
-- **Entry skill `yungroai-skills`** — users install only this skill; its first sync installs every other skill. It is the only place that defines the MCP dependency (full `mcpServers` config, check and guided install in the current agent) and skill sync. Every business skill starts with the standard 「前置检查」 section, which hands off to the manager (and guides installing it if missing). The manager's `scripts/sync.py` lists `skills/*/SKILL.md` on GitHub `main` (tree API + raw files), compares `metadata.version` with the sibling installed skills, then runs `npx skills update <names>` for newer versions and `npx skills add YunGroAI/agent-skills --skill <new>` for skills added to the repo (target agent from `--agent` or the CLI's `lastSelectedAgents`). Scope comes from the lock entry of the manager itself (`skills-lock.json` or the global `.skill-lock.json`); local-path and marketplace installs only get a hint. Agent-triggered only, 24 h throttle, silent on network failure, `YUNGROAI_SKILLS_AUTO_UPDATE=0` disables auto-apply; never deletes skills removed upstream.
+- **Entry skill `yungroai-skills`** — the only place that defines the MCP dependency (full `mcpServers` config, check and guided install in the current agent) and the standard install/update command. Every business skill starts with the standard 「前置检查」 section, which hands off to the manager (and guides installing it if missing). There is no sync script: skills are installed and updated only with the standard `npx skills add YunGroAI/agent-skills --skill '*'` (rerunnable: installs missing skills, updates installed ones; it clones via git, so no GitHub API rate limit) or `npx skills update`. Nothing checks or updates automatically at task start; the console's "connect AI assistant" prompt installs all skills up front.
 - **Templates** — `.claude/skills/skill-development/assets/preflight-section.md` is the canonical 「前置检查」 section. That project skill is `metadata.internal: true`, so the CLI never lists or installs it.
 - **WeChat skill constraints** (keep intact): multi-account calls carry a user-named `connection_id`; side effects (uploads, drafts, publish, preview, messages, menus) are batched behind explicit user confirmation.
 
@@ -46,7 +45,7 @@ Run the CI checks locally with [`act`](https://github.com/nektos/act): `act pull
 - Frontmatter has `name`, nonempty `description`, and `metadata.version` (semver). No client-generated keys (e.g. `agent_created`) or files (e.g. `_user_meta.json`).
 - **Bump `metadata.version` for any change under `skills/<name>/`** — users only receive updates when the version increases. Patch = wording/fixes, minor = new capability, major = breaking workflow change.
 - Business skills contain the template 「前置检查」 section verbatim before the startup steps, and must not contain `mcpServers` config or update scripts — those live only in `yungroai-skills` (CI).
-- A new business skill needs no manager change: once on `main`, managers install it on their next sync.
+- A new business skill needs no manager change: once on `main`, users get it the next time they run `npx skills add YunGroAI/agent-skills --skill '*'`.
 - Every relative Markdown link resolves; no TODO placeholders in `SKILL.md`.
 
 ### Content

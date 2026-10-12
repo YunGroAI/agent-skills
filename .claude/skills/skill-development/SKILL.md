@@ -12,7 +12,7 @@ metadata:
 
 ## 职责划分
 
-- `skills/yungroai-skills/`：**唯一**定义 MCP 依赖（检查、引导安装、完整配置）和技能同步（`scripts/sync.py`）的地方。
+- `skills/yungroai-skills/`：**唯一**定义 MCP 依赖（检查、引导安装、完整配置）和技能标准安装/更新命令的地方；没有同步脚本，不要再加回来。
 - 业务技能：只放业务流程，开头原样粘贴「前置检查」段落，把依赖与更新交给 `yungroai-skills`。
   不得出现 `mcpServers` 配置或任何更新脚本（CI 检查）。
 
@@ -34,8 +34,8 @@ metadata:
    「开始时」第 1 步写成：先完成「前置检查」；`YunGroAI` 连接可用前不调用该技能的 MCP 工具。
 4. 技能特有的 MCP 工具调用顺序写在「开始时」第 2 步及之后。
 5. 较长的流程放在 `references/*.md`，并在 SKILL.md 中按场景链接。
-6. 在 `README.md` 的技能表中加一行；递增 `connector-meta.json` 的 `version`。
-   新技能推送到 main 后，已安装 `yungroai-skills` 的用户会在下次同步时自动装上它，不需要改 `yungroai-skills`。
+6. 在 `README.md` 的技能表中加一行，递增 `connector-meta.json` 的 `version`。
+   新技能推送到 main 后，用户下次执行 `npx skills add YunGroAI/agent-skills --skill '*'` 时装上它，不需要改 `yungroai-skills`。
 
 ## 修改已有技能
 
@@ -46,5 +46,4 @@ metadata:
 ## 提交前自检
 
 1. 运行 CI 同款检查：`act pull_request -W .github/workflows/skills-standard.yml`；没有安装 `act` 时，按 CLAUDE.md 的 CI 标注项逐条人工核对。
-2. 修改了 `yungroai-skills` 时，在其目录执行 `python3 scripts/sync.py --check-only --force`，应返回一行 JSON 且不报错。
-3. 完成 CLAUDE.md 中「Manual review」两项无法自动化的检查，并在 PR 中写明受影响的技能、新版本号和实际执行过的检查。
+2. 完成 CLAUDE.md 中「Manual review」两项无法自动化的检查，并在 PR 中写明受影响的技能、新版本号和实际执行过的检查。
