@@ -41,7 +41,7 @@
 
 **阶段 B（需确认，一次性走完）** —— 用户明确说“入草稿箱 / 就这样发 / 可以了”之后才启动：
 
-1. 图片一次性备齐后**部署一次**取得公网 HTTPS 地址；
+1. 图片一次性备齐（本地图走「本地图片上传」，不必再部署图床）；
 2. 上传封面与正文图，取得 `media_id` 和 mmbiz URL；
 3. 首次写入用 `weixin_oa_create_draft`，后续修改一律 `weixin_oa_update_draft`；
 4. 用 `weixin_oa_get_draft` 读回核对并记录 `draft_digest`。
@@ -109,8 +109,13 @@
 
 ### 生成后先跑脚本
 
-`weixin_oa_upload_content_image` 和 `weixin_oa_add_material` **只接受 `image_url`**，由服务端下载后再转交给微信，
-没有本地文件、base64 或 multipart 通道。因此图片必须先成为公网 HTTPS 资源。
+`weixin_oa_upload_content_image` 和 `weixin_oa_add_material` 都只有一个 `image_url` 参数，取值有两种：
+
+- **本地图片（默认）**：先调 `weixin_oa_create_image_upload` 拿 `upload_url`，用 PUT 把本地文件传上去，
+  再把同一个 `upload_url` 作为 `image_url`（见下面「本地图片上传」）；
+- **已有公网 HTTPS 地址**：直接作为 `image_url`，由服务端下载。
+
+不要把 base64 或 data URI 塞进参数，服务端不接受，也会白白消耗大量 token。
 
 统一用脚本处理，不要每次手写 Pillow 代码（**必须串行调用**，并发会因输出文件名按秒生成而互相覆盖）：
 
@@ -137,10 +142,30 @@ $PY scripts/prepare_image.py ./wx_images --check-only                  # 自检�
 | 第三方图也失败，报 `INVALID_IMAGE`「目标地址不安全」 | 服务端出网被拦，请求根本没到微信 | 走手动通道；不建议反复重试 |
 | 第三方图也失败，报 `40005` / `40113` | 请求到了微信，服务端 multipart 组装有问题 | 同上，并把错误码+对照证据整理给用户去报障 |
 | 只有我们的图失败 | 图片或托管地址问题 | 检查 magic bytes、体积、`Content-Type`、URL 是否 200 |
+| 本地上传链接报 `INVALID_IMAGE_URL` | 链接过期或不是本人创建的 | 重新创建上传链接再传 |
+| 本地上传链接报 `INVALID_IMAGE`「还没有收到图片」 | `curl` 没成功 | 看 `curl` 返回码，传成功再调 |
 
-### 托管与部署
+### 本地图片上传
 
-图片必须有**公网 HTTPS 地址**。本地准备好静态目录后，用当前环境可用的静态托管发布取得域名再用
+每张图一个上传链接，**串行**处理：
+
+1. 调 `weixin_oa_create_image_upload`（只读，不需要幂等键），拿到 `upload_url`，30 分钟内有效，只限本人使用。
+2. 在本机终端上传（只能 PUT 一次，一个链接只装一张图）：
+
+   ```bash
+   curl --fail --upload-file ./wx_images/图1.jpg "<upload_url>"
+   ```
+
+   返回 `{"status":"uploaded",...}` 才算成功；`413` 超限、`415` 不是有效 PNG/JPEG、`404` 链接过期、
+   `409` 已经传过（换新链接）。
+3. 正文图调 `weixin_oa_upload_content_image`、封面调 `weixin_oa_add_material`，`image_url` 填同一个 `upload_url`。
+   有效期内同一个链接可以再次引用（比如同一张图既做正文图又做封面），过期后重新走第 1 步。
+
+没有终端（无法执行 `curl`）的环境用不了这条路，改用下面的公网托管或手动通道。
+
+### 托管与部署（可选）
+
+图片已经在公网，或环境里有现成的静态托管时，也可以直接给公网 **HTTPS 地址**
 （对象存储、GitHub Pages、或客户端自带的部署工具均可；不限定具体工具）。
 
 部署属于外部副作用，三条约束：

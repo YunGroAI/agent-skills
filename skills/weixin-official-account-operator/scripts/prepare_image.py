@@ -2,7 +2,8 @@
 """公众号配图预处理：去水印 → 限制宽度 → 压缩到目标体积 → 合规自检。
 
 用途：把 ImageGen 生成的图（或其它来源的图）处理成可交给
-`weixin_oa_upload_content_image` / `weixin_oa_add_material` 的公网素材。
+`weixin_oa_upload_content_image` / `weixin_oa_add_material` 的素材
+（本地文件经 `weixin_oa_create_image_upload` 上传）。
 
 依赖 Pillow。若当前解释器没有 Pillow，先安装再执行：
   python3 -m pip install pillow
