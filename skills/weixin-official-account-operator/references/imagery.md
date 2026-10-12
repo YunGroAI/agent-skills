@@ -79,8 +79,10 @@ no text, no letters, no logos, no watermarks
    $PY scripts/prepare_image.py ./wx_images --check-only
    ```
 
-2. 取得公网 HTTPS 地址后：正文图调 `weixin_oa_upload_content_image`（拿 mmbiz URL），
-   封面调 `weixin_oa_add_material`（拿 `media_id`，写入 `thumb_media_id`）。全程带 `connection_id`。
+2. 本地图逐张调 `weixin_oa_create_image_upload` 拿 `upload_url`，`curl --fail --upload-file 图 "<upload_url>"`
+   上传，再把 `upload_url` 作为 `image_url`（细节见 [publishing.md](publishing.md)「本地图片上传」）：
+   正文图调 `weixin_oa_upload_content_image`（拿 mmbiz URL），封面调 `weixin_oa_add_material`
+   （拿 `media_id`，写入 `thumb_media_id`）。全程带 `account_id`。
 3. 图片插在**语义对应**的段落之后，按配图脚本的位置放，不要堆开头或全放文末。
 4. 图注写图里没有的信息（出处、补充、一句点评），不重复正文原句；
    `![说明](url)` 的说明文字会同时作为 alt 和图注。
