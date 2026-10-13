@@ -101,6 +101,20 @@ jobs:
                   if (skill / junk).exists():
                       err(f"{skill / junk}: 客户端生成文件，不应提交")
 
+          # 技能目录：管家的「技能目录」表与业务技能一一对应
+          manager_md = Path("skills") / MANAGER / "SKILL.md"
+          if manager_md.is_file():
+              m = re.search(r"^## 技能目录\n(.*?)(?=^#)", manager_md.read_text(encoding="utf-8"), re.S | re.M)
+              listed = set(re.findall(r"^\|\s*`([a-z0-9-]+)`\s*\|", m.group(1), re.M)) if m else set()
+              business = {p.name for p in skills if p.name != MANAGER and (p / "SKILL.md").is_file()
+                          and not (frontmatter(p / "SKILL.md").get("metadata") or {}).get("internal")}
+              if not m:
+                  err(f"{manager_md}: 缺少「## 技能目录」表")
+              for name in sorted(business - listed):
+                  err(f"{manager_md}: 技能目录缺少 {name}（新增或改名业务技能时须同步登记）")
+              for name in sorted(listed - business):
+                  err(f"{manager_md}: 技能目录中的 {name} 不存在（删除或改名业务技能时须同步移除）")
+
           if mcp not in list(json_blocks(Path("README.md").read_text(encoding="utf-8"))):
               err("README.md: 缺少与 mcp.json 一致的 mcpServers 配置块")
 
@@ -164,6 +178,7 @@ jobs:
           python - <<'PY'
           import os, re, subprocess, sys
           from pathlib import Path
+          import yaml
 
           base = os.environ.get("BASE", "")
           if not base or set(base) == {"0"}:
@@ -186,6 +201,24 @@ jobs:
               after = version((skill / "SKILL.md").read_text(encoding="utf-8"))
               if before and (not after or after <= before):
                   print(f"::error::{skill}: 目录有改动，但 metadata.version 没有递增（{before} → {after}）")
+                  failed = True
+
+          # 业务技能适用范围（description）有调整时，管家的技能目录必须同步更新
+          MANAGER = "skills/yungroai-skills"
+          manager_changed = subprocess.run(["git", "diff", "--quiet", base, "--", f"{MANAGER}/SKILL.md"]).returncode != 0
+
+          def description(text):
+              if not text.startswith("---"):
+                  return None
+              return (yaml.safe_load(text.split("---", 2)[1]) or {}).get("description")
+
+          for skill in sorted(p for p in Path("skills").iterdir() if p.is_dir() and str(p) != MANAGER):
+              old = subprocess.run(["git", "show", f"{base}:{skill}/SKILL.md"], capture_output=True, text=True)
+              if old.returncode != 0 or not (skill / "SKILL.md").is_file():
+                  continue  # 新增或删除由技能目录一致性检查负责
+              if description(old.stdout) != description((skill / "SKILL.md").read_text(encoding="utf-8")) \
+                      and not manager_changed:
+                  print(f"::error::{skill}: 技能适用范围（description）已调整，请同步更新 {MANAGER}/SKILL.md 的技能目录表并递增其版本")
                   failed = True
           sys.exit(1 if failed else 0)
           PY

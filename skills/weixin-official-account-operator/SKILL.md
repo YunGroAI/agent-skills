@@ -2,7 +2,7 @@
 name: weixin-official-account-operator
 description: 使用 YunGroAI 增长引擎 MCP 完成公众号选题、热门文章对标、有人味的写作与去 AI 味改稿、场景模板写作、标题评分、HTML 排版、草稿预览与发表、私信和粉丝运营、数据复盘。当用户提到公众号写文章、选题、找爆款/热门文章参考、按爆文逻辑改写、文章太生硬/AI 味重、润色续写扩写缩写仿写、标题优化、图文排版、草稿箱、群发或发表、封面配图、粉丝私信、菜单标签、阅读数据复盘时使用本技能；不处理企业微信、视频号、微信小店或小程序。
 metadata:
-  version: 1.3.0
+  version: 1.3.1
 ---
 
 # weixin-official-account-operator（公众号增长运营）
@@ -37,9 +37,9 @@ YunGroAI 增长引擎 MCP 读写，不直接调用微信 API。
 
 ## 前置检查
 
-<!-- yungroai:preflight v3 -->
+<!-- yungroai:preflight v4 -->
 本技能依赖 `YunGroAI` MCP 连接。任务开始时**先使用 `yungroai-skills` 技能**完成前置检查
-（MCP 连接检查与引导安装），通过后再继续本技能。
+（MCP 连接检查与引导安装，并按需自动更新 YunGroAI 技能），通过后再继续本技能。
 
 - 未安装 `yungroai-skills` 时，告诉用户需要先安装它，征得同意后代为执行（或请用户执行）：
   `npx skills add YunGroAI/agent-skills --skill yungroai-skills`，装好后按它的指引完成检查。

@@ -4,7 +4,7 @@
 
 | 技能 | 用途 |
 |---|---|
-| `yungroai-skills` | 技能管家：所有技能共用的前置检查——确认 `YunGroAI` MCP 连接（未安装时引导在当前 Agent 中安装），并给出标准的技能安装与更新命令 |
+| `yungroai-skills` | 技能管家：确认 `YunGroAI` MCP 连接（未安装时引导在当前 Agent 中安装），每天自动更新已装技能，按任务匹配业务技能并在缺失时自动安装 |
 | `weixin-official-account-operator` | 公众号增长运营：主题锁定、热门文章对标与爆文逻辑改写、有人味的写作与去 AI 味改稿、场景模板与标题评分、排版与配图、草稿与发表、私信与粉丝运营、数据复盘 |
 
 `weixin-official-account-operator` 要点：
@@ -19,14 +19,21 @@
 
 推荐使用 [Vercel Labs 的 skills CLI](https://github.com/vercel-labs/skills) 安装。需要 Node.js 和 `npx`。支持从公开 GitHub 仓库或本地目录安装，在目标项目目录中运行对应命令即可。
 
-**从公开仓库安装**（推荐，仓库地址 [YunGroAI/agent-skills](https://github.com/YunGroAI/agent-skills)）。一次装好全部技能：
+**从公开仓库安装**（推荐，仓库地址 [YunGroAI/agent-skills](https://github.com/YunGroAI/agent-skills)）。只需安装技能管家：
+
+```bash
+npx skills add YunGroAI/agent-skills --skill yungroai-skills -g -y
+```
+
+`-g` 装到用户级，所有项目都能用；可加 `-a <Agent 名称>`（如 `claude-code`、`codex`、`cursor`）指定目标 Agent。
+之后直接说要做的事（如 `/yungroai-skills 帮我写一篇公众号文章`）：管家会检查并引导添加 `YunGroAI` 连接，
+按任务匹配业务技能，没装的自动安装后接着执行。新装的技能如未被自动识别，开启新会话即可。
+
+想一次装好全部技能（例如离线使用前）：
 
 ```bash
 npx skills add YunGroAI/agent-skills --skill '*' -g -y
 ```
-
-`-g` 装到用户级，所有项目都能用；可加 `-a <Agent 名称>`（如 `claude-code`、`codex`、`cursor`）指定目标 Agent。
-装好后按下文添加 `YunGroAI` 连接；新装的技能如未被识别，开启新会话即可。
 
 **从本地目录安装**（适合本地调试或离线使用，先克隆或下载本仓库）：
 
@@ -53,7 +60,10 @@ MCP 依赖统一由 `yungroai-skills` 声明和检查，各业务技能开始任
 
 ## 更新
 
-没有自动同步脚本，统一用 skills CLI 更新。重新执行安装命令即可：缺少的技能（包括仓库新增的技能）会装上，已装技能会更新到最新版本。
+技能管家在任务开始时自动更新已装技能，每 24 小时最多一次；用户要求更新时立即执行。
+设置环境变量 `YUNGROAI_SKILLS_AUTO_UPDATE=0` 可关闭自动安装与更新（改为给出命令）；从本地目录安装的技能不会被自动更新。
+
+手动更新：重新执行全量安装命令，缺少的技能（包括仓库新增的技能）会装上，已装技能会更新到最新版本。
 
 ```bash
 npx skills add YunGroAI/agent-skills --skill '*' -g -y
@@ -77,7 +87,7 @@ npx skills update
 ├── mcp.json                     # MCP Server 连接配置（streamableHttp）
 ├── icon.svg                     # 市场图标（云穹 AI 图形标）
 └── skills/
-    ├── yungroai-skills/       # 前置检查：MCP 依赖 + 安装与更新方式
+    ├── yungroai-skills/       # 技能管家：MCP 依赖 + 技能目录 + 自动安装与更新
     └── weixin-official-account-operator/
 ```
 
