@@ -12,6 +12,7 @@
 示例：
   prepare_image.py a.png b.png -o ./out
   prepare_image.py ./out --check-only          # 只做合规自检，不改动文件
+  prepare_image.py cover.png --cover -o ./out  # 封面：同时输出 2.35:1 和 1:1 两个裁切版本
 """
 
 from __future__ import annotations
@@ -29,6 +30,8 @@ except ImportError:
 
 MAX_WIDTH_DEFAULT = 1080
 MAX_KB_DEFAULT = 200
+# 封面：2.35:1 用于消息列表大图，1:1 用于转发卡片和次条小图
+COVER_VARIANTS = [("cover_235", 2.35), ("cover_11", 1.0)]
 QUALITY_RANGE = (85, 40)
 
 
@@ -67,18 +70,36 @@ def save_under_limit(im: Image.Image, target: Path, max_kb: int) -> tuple[int, i
     return best[0], len(best[1])
 
 
+def crop_ratio(im: Image.Image, ratio: float) -> Image.Image:
+    """按宽高比居中裁切；竖向偏上取景（主体通常在画面上半部）。"""
+    w, h = im.size
+    if w / h > ratio:
+        nw = round(h * ratio)
+        left = (w - nw) // 2
+        return im.crop((left, 0, left + nw, h))
+    nh = round(w / ratio)
+    top = round((h - nh) * 0.4)
+    return im.crop((0, top, w, top + nh))
+
+
 def prepare(src: Path, outdir: Path, max_width: int, max_kb: int,
-            crop_top: float, crop_bottom: float, do_crop: bool) -> dict:
+            crop_top: float, crop_bottom: float, do_crop: bool, cover: bool = False) -> list[dict]:
     with Image.open(src) as raw:
         im = raw.convert("RGB")
     w, h = im.size
     if do_crop:
         im = im.crop((0, int(h * crop_top), w, int(h * (1 - crop_bottom))))
-        w, h = im.size
+    variants = COVER_VARIANTS if cover else [("wx", None)]
+    outdir.mkdir(parents=True, exist_ok=True)
+    return [save_variant(crop_ratio(im, ratio) if ratio else im, outdir / f"{src.stem}_{suffix}.jpg",
+                         max_width, max_kb)
+            for suffix, ratio in variants]
+
+
+def save_variant(im: Image.Image, target: Path, max_width: int, max_kb: int) -> dict:
+    w, h = im.size
     if w > max_width:
         im = im.resize((max_width, round(h * max_width / w)), Image.LANCZOS)
-    outdir.mkdir(parents=True, exist_ok=True)
-    target = outdir / f"{src.stem}_wx.jpg"
     quality, size = save_under_limit(im, target, max_kb)
     return {
         "file": str(target),
@@ -114,6 +135,7 @@ def main() -> int:
     ap.add_argument("--crop-bottom", type=float, default=0.09, help="裁掉底部水印比例，默认 0.09")
     ap.add_argument("--no-crop", action="store_true", help="不裁剪，仅缩放压缩")
     ap.add_argument("--check-only", action="store_true", help="只自检，不生成新文件")
+    ap.add_argument("--cover", action="store_true", help="封面模式：每张图输出 2.35:1 与 1:1 两个裁切版本")
     args = ap.parse_args()
 
     files: list[Path] = []
@@ -129,12 +151,13 @@ def main() -> int:
         print("没有可处理的图片", file=sys.stderr)
         return 1
 
-    results = [
-        check(p, args.max_kb, args.width) if args.check_only
-        else prepare(p, args.outdir, args.width, args.max_kb,
-                     args.crop_top, args.crop_bottom, not args.no_crop)
-        for p in files
-    ]
+    results = []
+    for p in files:
+        if args.check_only:
+            results.append(check(p, args.max_kb, args.width))
+        else:
+            results += prepare(p, args.outdir, args.width, args.max_kb,
+                               args.crop_top, args.crop_bottom, not args.no_crop, args.cover)
 
     print(f"{'文件':42s} {'尺寸':>10s} {'KB':>7s} {'JPEG':>5s} {'达标':>5s}")
     for item in results:

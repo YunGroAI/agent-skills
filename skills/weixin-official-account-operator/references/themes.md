@@ -1,7 +1,7 @@
 # 主题风格模版
 
 把「内容调性」翻译成一套可复用的版式与配色。主题库是 `assets/themes.json`（唯一数据源），
-渲染统一用 `scripts/build_article.py`（内部调用 `render_theme.py`），不要每次手写内联样式 HTML。
+渲染统一用 `scripts/build_article.py`（内部调用 `render_theme.py`）；主题之外的样式组件见 [editor-kit.md](editor-kit.md)。
 
 ## 何时进入本文件
 
@@ -20,14 +20,17 @@
 | 用户显式要求 | 本轮对话里的风格词（如「国风」「要热闹」） | 权重最高，直接命中对应主题 |
 | 历史一致性 | `weixin_oa_list_published_articles` 近期文章 | 复用主色与标题装饰，见下文 |
 
-只在缺失且会影响结果时才追问风格；用户没说就按内容自动推荐，并把推荐理由讲出来。
+引导模式下用主题风格卡（[interaction-cards.md](interaction-cards.md) 第 6 节）让用户选：推荐前 3 套 + 「看全部 / 品牌色」，
+并附用这篇文章渲染的对比页；用户已点名主题、要求沿用上次风格或走快捷模式时，直接按推荐渲染并讲出理由。
 
 ### 2. 自动匹配
 
 ```bash
 python3 scripts/render_theme.py --list                    # 查看 8 套主题
 python3 scripts/render_theme.py 正文.md --suggest          # 按内容打分排序，输出依据
-python3 scripts/render_theme.py --showcase assets/theme-showcase.html   # 生成对比页给用户挑
+python3 scripts/render_theme.py 正文.md --cards            # 主题风格卡选项（推荐前 3 + 兜底项，JSON）
+python3 scripts/render_theme.py 正文.md --compare 主题对比.html [--themes a,b,c]   # 用这篇文章对比几套主题
+python3 scripts/render_theme.py --showcase assets/theme-showcase.html   # 示例内容的全部 8 套对比页
 ```
 
 `--suggest` 的打分由「领域关键词（权重 3/词，上限 24）+ 用户风格词（+8）+ 结构特征
@@ -35,12 +38,18 @@ python3 scripts/render_theme.py --showcase assets/theme-showcase.html   # 生成
 
 **不要盲信第一名**：
 
-- 前两名分差 ≤ 3，或内容明显跨领域（如「技术+活动」）时，用两套主题各渲染一版，
-  在本地打开 `assets/theme-showcase.html` 让用户直接看效果再选。
+- 前两名分差 ≤ 3，或内容明显跨领域（如「技术+活动」）时，主题卡的说明里点出「两套都合适」，
+  并让用户先看 `--compare` 对比页再选。
+- 推荐全为 0 分（内容没有明显信号）时，主题卡不标「推荐」，按账号历史风格或通用度排序，说清是凭什么排的。
 - 需要混搭时：以一套的版式骨架为 `--theme`，用另一套的强调色作 `--accent`，
   不要自己拼出一堆新颜色。
 
-### 3. 品牌色定制
+### 3. 字号与留白
+
+`--density` 只调字号、行高和段距，不动配色与版式骨架：`large`（大字宽松，字号 +1、行高 1.95）适合中老年读者和长文；
+`compact`（紧凑，字号 −1、行高 1.7）适合信息密集的清单；默认 `standard` 用主题原值。
+
+### 4. 品牌色定制
 
 用户提供品牌色时，不新造主题，而是从最接近的基准主题派生（保留版式骨架，只换皮肤）：
 
@@ -69,40 +78,28 @@ python3 scripts/build_article.py 正文.md -o 成稿.html --theme professional \
 
 ## 基于已发表内容保持一致
 
-1. 用 `weixin_oa_list_published_articles`（带 `connection_id`）取近期 3–5 篇，
+1. 用 `weixin_oa_list_published_articles`（带 `account_id`）取近期 3–5 篇，
    只对需要比较的 ID 调 `weixin_oa_get_published_article`。
 2. 抽取可复用特征：主色、标题装饰方式、是否用结论卡/统计块、配图密度。
 3. 用最接近的主题渲染，并 `--primary` 复用历史主色。
 4. 向用户说明「沿用了历史主色/版式」；账号主动改版时要明确告知风格会变，
    不要用「保持一致」掩盖其实是换风格。
 
-## 配图与封面要跟主题对齐
-
-配图走独立的 [配图规划](imagery.md)：先按提纲写「配图脚本」（封面 + 每 400–600 字一张内文图），
-再按主题的色调与质感统一生成，避免图与版式打架。速记版本：
-
-- `tech`：冷色、几何、抽象光感；`warm`：暖光、人物、生活场景；
-- `magazine`：强对比、纪实感；`oriental`：留白、水墨、器物静物；
-- `vibrant`：高饱和、动感；`academic`：简洁图示、数据感。
-
-生成后照 [publishing.md](publishing.md) 跑 `scripts/prepare_image.py`，
-**该脚本必须串行调用**，并发会因输出文件名按秒生成而互相覆盖。
+配图的色调与质感要跟主题一致，各主题对应的画面要求见 [imagery.md](imagery.md) 第三步。
 
 ## 渲染输入格式
 
 受支持的 Markdown 子集见 `assets/sample-article.md`：
 `##`/`###` 标题、段落（首段自动作导语）、`-`/`1.` 列表、`>` 引语、`---` 分隔、
-`![说明](url)` 图片，以及三种围栏块 `:::card`（结论卡）、`:::stat 数值 | 注解`（强调数字）、
-`:::cta`（行动号召）、`:::note`（小字说明）。行内支持 `**加粗**`、`*斜体*`、`` `代码` ``。
+`![说明](url)` 图片，以及围栏块 `:::card`（结论卡）、`:::stat 数值 | 注解`（强调数字）、
+`:::cta`（行动号召）、`:::note`（小字说明），以及 `:::html`（原样嵌入 Agent 手写的组件，见 [editor-kit.md](editor-kit.md)）。行内支持 `**加粗**`、`*斜体*`、`` `代码` ``。
 
 正文外链在公众号里通常不可点击，脚本会在渲染后把外链列到 stderr，需另行处理
 （放进「阅读原文」或用文字说明）。
 
 ## 出稿前自检
 
-- [ ] 全文只有一个主强调色，颜色/粗体/大字/底色没有堆叠在同一处。
-- [ ] 二级标题装饰方式与所选主题一致，没有又加粗又加底色又加下划线。
 - [ ] 主题与内容调性、本篇目标相符（转化文用 `vibrant`，深度文用 `magazine`，别反着来）。
-- [ ] 无 `script`、`svg`、`iframe`、外部 CSS、Flex/Grid、绝对定位（脚本不会产出这些，手工改稿时要守住）。
-- [ ] 图片有有意义的 `alt`，图注不重复正文。
+- [ ] 二级标题装饰方式与所选主题一致，没有又加粗又加底色又加下划线。
+- [ ] `check_html.py` 无 ERROR（强调色数量、禁用标签与样式、alt 都由它检查）。
 - [ ] 写入草稿后用 `weixin_oa_get_draft` 读回，确认微信改写后版式仍成立。

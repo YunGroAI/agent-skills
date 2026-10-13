@@ -9,17 +9,19 @@
 
 | code | retryable | 含义 | 处置 |
 |---|---|---|---|
-| ACCOUNT_SELECTION_REQUIRED | false | 需要指定有效公众号连接 | 从 `weixin_core_list_accounts` 取 `connection_id` 后重传，不猜测 |
-| RESOURCE_NOT_FOUND | false | 连接不存在 | 只说明当前用户无法访问，不推测其他用户资源是否存在 |
-| AUTHORIZATION_REVOKED | false | 连接已断开或微信授权已撤销 | 查 `weixin_core_get_authorization_status`，按用户需要重新授权 |
+| ACCOUNT_SELECTION_REQUIRED | false | 没传 `account_id`，且可用账号不止一个（或一个都没有） | 本会话还没绑定账号：出账号绑定卡，绑定后带 `account_id` 重传 |
+| ACCOUNT_TYPE_MISMATCH | false | 所选账号不是公众号（如小店账号） | 只从 `account_type=official_account` 的账号里选 |
+| RESOURCE_NOT_FOUND | false | 账号不存在 | 只说明当前用户无法访问，不推测其他用户资源是否存在 |
+| AUTHORIZATION_REVOKED | false | 账号已取消授权（`status` 非 active） | 按 SKILL.md「扫码新增公众号」重新授权，或请用户在平台「业务账号」页重新连接 |
 | NOT_CONFIGURED | false | 服务端未配置开放平台 | 扫码入口不可用，提示由部署管理员配置，不索要密钥 |
 | TICKET_MISSING | false | 未收到微信 component_verify_ticket | 同上，属部署侧问题，等待回调或联系管理员 |
 | INVALID_AUTHORIZATION | false | 授权会话已过期或已使用 | 重新发起 `weixin_core_start_authorization` |
 | INSUFFICIENT_SCOPE | false | 公众号未授权该能力所需权限集 | 说明权限不足；再次授权可能仍受账号资质限制（见 48001） |
 | CAPABILITY_UNVERIFIED | false | 该部署尚未验证此能力契约 | 明确能力未验收，不改开关、不换接口绕过 |
 | IDEMPOTENCY_CONFLICT | false | 幂等键已用于不同参数 | 检查是否错误复用键，不自动换键重复动作 |
+| （批量结果）`unknown` | — | 批量删除或转存中某项结果未确认 | 用同一 `idempotency_key` 重放，或先读回核实（`list_materials` / 读回草稿），不换键重做 |
 | CONTENT_CHANGED | false | 草稿已变化 | 重新 `weixin_oa_get_draft` 取最新 `draft_digest`，重新取得批准 |
-| INVALID_DATE_RANGE | false | 日期不合法 | 区间有序、最多 7 天、早于北京时间今天；发表数据仅 2025-11-01 及之后 |
+| INVALID_DATE_RANGE | false | 日期不合法 | 区间有序、早于北京时间今天、长度不超上限（见 analytics.md）；发表数据仅 2025-11-01 及之后 |
 | INVALID_IMAGE_URL | false | 图片地址不合规 | 必须是无用户信息的 HTTPS 公网地址，换地址再传 |
 | INVALID_IMAGE | false | 服务端取图失败或地址被判不安全 | 做第三方图对照测试判定故障层，见 publishing.md |
 | MESSAGE_WINDOW_CLOSED | false | 无已验证的 48 小时用户消息窗口 | 不能发送客服消息；请用户重新发消息开启窗口，不换渠道触达 |
@@ -61,5 +63,3 @@
 
 - 失败汇报四件套：真实 code（含 `wechat_errcode`）、`retryable` 判断、`source_ip`（若有）、用户下一步具体动作或替代路径。
 - 结果未知时查原操作，不换幂等键重发；`publish_id` 只代表已提交，不等于已发表。
-- 只查询本人的操作和用量（`weixin_core_get_usage_summary`）。普通公众号运营不调用 weixin_admin 工具，
-  安装技能不会提权。

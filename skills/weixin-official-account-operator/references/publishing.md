@@ -2,30 +2,28 @@
 
 ## 0. 按需路径预检（承诺交付方式之前做）
 
-不要等到最后一步才发现路走不通。**在动笔之前**（或首次交付之前）用只读调用摸清这个账号能走到哪一步，
-把结论先告诉用户，再承诺交付方式。预检用只读接口，副作用最小，**每一项都带上目标 `connection_id`**。
-**只探本次要走到的环节，且互不依赖的探测并行发出**：只写草稿就探 `list_drafts`（+ 有配图时探图片链路）；
-要预览才加 `list_followers`；要发表才提前告知“发表与草稿分属不同权限域”，以 `list_followers` 结果作参考；
-纯本地写作/改稿阶段不做任何预检。
+不要等到最后一步才发现路走不通。首次交付之前用**只读**调用摸清这个账号能走到哪一步，先告诉用户再承诺交付方式。
+**只探本次要走到的环节，互不依赖的探测并行发出**：只写草稿就探 `list_drafts`；要预览才加 `list_followers`；
+要发表就提前说明“发表与草稿分属不同权限域”，以 `list_followers` 结果作参考。纯本地写作/改稿阶段不预检。
+图片链路不预检（上传本身就是副作用），在阶段 B 第一张图出错时按下文「上传失败时判定故障层」处理。
 
 | 探测 | 通过意味着 | 失败意味着 |
 |---|---|---|
-| `weixin_core_list_accounts` | 连接正常、能拿到 `connection_id`/`mode` | 需重新授权 |
+| `weixin_core_list_accounts` | 连接正常，目标账号 `status=active` | 账号未连接或已取消授权 → 按 SKILL.md「授权与边界」 |
 | `weixin_oa_list_drafts` | 草稿可读写 | 40164（白名单）或资质问题 → [recovery.md](recovery.md) |
 | `weixin_oa_list_materials` | 素材可读写 | 同上 |
 | `weixin_oa_list_followers` | 用户管理族有权限 | 多为 48001 → **预览（需 openid）和发表（freepublish）通常同族受限** |
-| `weixin_oa_upload_content_image`（一张第三方图） | 图片链路可用 | 见下面「图片链路故障」 |
 
 三条铁律：
 
-1. **工具实现可用 ≠ 账号有权限。** 服务能力清单里写 `implemented` 只说明代码写完了，账号可能一个都调不通。
-   `mode=direct`（配置直连）账号的 `scopes` 为空，实际权限由微信返回决定，预检必须以实测结果为准。
+1. **工具在清单里 ≠ 账号有权限。** `mode=direct`（配置直连）账号的 `scopes` 为空，实际权限由微信返回决定，
+   预检以实测结果为准。
 2. **能写草稿 ≠ 能发表。** 草稿读写和发表分属不同权限域，很多未认证号卡在这里。预检阶段就要说清，
    不要让用户走到最后一步才被告知“发表不了”。
 3. **不要继承上一次的故障结论。** 同一条链路可能上一轮 `INVALID_IMAGE`、下一轮 `40005`、再下一轮恢复正常。
    每轮任务都重新做一次轻量探测，别把历史判断当成永久结论。
 
-错误码的完整含义与处置统一见 [查询与恢复](recovery.md)，本文件只在场景内给出最短路径。
+错误码的完整含义与处置见 [查询与恢复](recovery.md)。
 
 ## 1. 两阶段交付：本地迭代 → 最终确认后一次性执行
 
@@ -34,17 +32,17 @@
 
 **阶段 A（自由，可反复，不联网）**
 
-1. Markdown 定稿后一条命令 `scripts/build_article.py 正文.md -o out.html` 完成体检（ERROR 清零才渲染）+ 主题推荐 + 渲染；
-2. 在本地打开 HTML 给用户看真实版式；
+1. 定稿后 `scripts/build_article.py` 渲染（主题按 [themes.md](themes.md) 选定，样式组件见 [editor-kit.md](editor-kit.md)）；
+2. 在本地打开 HTML 给用户看真实版式（`check_html.py --preview` 可出 375px 手机预览）；
 3. 按 [配图规划](imagery.md) 生成图片并用 `scripts/prepare_image.py` 本地处理达标；
 4. 需要修改就在本地改，改到第 N 版都不产生任何外部副作用。
 
 **阶段 B（需确认，一次性走完）** —— 用户明确说“入草稿箱 / 就这样发 / 可以了”之后才启动：
 
-1. 图片一次性备齐（本地图走「本地图片上传」，不必再部署图床）；
-2. 上传封面与正文图，取得 `media_id` 和 mmbiz URL；
-3. 首次写入用 `weixin_oa_create_draft`，后续修改一律 `weixin_oa_update_draft`；
-4. 用 `weixin_oa_get_draft` 读回核对并记录 `draft_digest`。
+1. 本地图走「本地图片上传」拿到上传链接（不必再部署图床），只处理这次新增或换掉的图；
+2. 封面调 `weixin_oa_add_material` 取得 `media_id`；正文图用「正文图一键转存」整篇换成 mmbiz URL，
+   没有该工具时逐张调 `weixin_oa_upload_content_image`；
+3. 按「草稿写入与核对」写入草稿并读回，记录 `draft_digest`。
 
 **阶段 C（需最终确认，对外可见）** —— 微信预览（给真人发消息）和发表，逐条复述后执行，见下文。
 
@@ -58,81 +56,47 @@
 | 图床目录 | 公网 URL 前缀 | 同一目录不重复部署；要改图就一次改齐再部署一次 |
 
 只改文字 → 只 `update_draft`（新的 `idempotency_key`），图片资源全部复用。
-换账号 → 复用表整表作废，回到第 0 节重新预检（见 SKILL.md「账号锁定」）。
+换账号 → 复用表整表作废，回到第 0 节重新预检（见 SKILL.md「会话账号绑定」）。
 
 ### 执行前确认清单（阶段 B/C 都要先摆出来）
 
 ```text
 即将执行，请确认：
-- 账号：<昵称/主体>（connection_id 后 6 位 …abc123）
+- 账号：<昵称/主体>（account_id 后 6 位 …abc123）
 - 动作：创建草稿 / 更新草稿 / 微信预览 / 发表
 - 内容：标题…；摘要…；正文版本（微信读回版）
 - 资源：封面 1 张（新传/复用）、正文图 N 张（M 张新传、K 张复用）
 - 影响：公网部署会覆盖该目录既有线上内容；草稿写入后旧 digest 与旧批准失效
 ```
 
-## 排版策略
-
-**主题（配色 + 版式骨架）先按 [主题风格模版](themes.md) 定下来，再回到本节处理图片、草稿和发表。**
-用户偏好的版式映射到主题 id：`professional`→`professional`、`knowledge`→`academic`、
-`story`→`warm`；用户给了品牌色时用 `--primary` 从最接近的主题派生。
-渲染统一走 `scripts/build_article.py`（内部调用 `render_theme.py`，自动推荐主题 → 输出微信安全的内联样式 HTML），不要每次手写 HTML。
-
-未配置品牌颜色时选一个与主题相符的低饱和强调色，全文仅用一个主强调色。正文 15–17px、行高 1.7–1.9、
-文字 `#333333`、段后距 16–20px，二级标题 18–22px。颜色、粗体、大字、背景和下划线不同时堆叠。
-
-图片不可用时，用纯 CSS 视觉块制造层次而不撒谎：导语卡、对照卡（痛点灰底 vs 结论主色底）、
-强调数字（24–28px + 居中小字注解）、分隔符（如 ◆ ◆ ◆）、CTA 卡。
+清单后附执行确认卡（[interaction-cards.md](interaction-cards.md) 第 7 节）：「确认执行 / 先改某一项 / 暂不执行」；
+发表、微信预览等对外可见动作不标推荐，由用户主动选中。
 
 ## HTML 约束
+
+主题与版式见 [themes.md](themes.md)，样式组件见 [editor-kit.md](editor-kit.md)。无论哪条路线产出的 HTML 都要满足：
 
 - 使用单栏结构和内联 `style`，优先 `section`、`p`、`h2`、`strong`、`blockquote`、`ul`/`ol` 和 `img`。
 - 不依赖外部 CSS、JavaScript、动画、表单、iframe、SVG、Flex/Grid 或绝对定位。微信仍可能进一步清理样式。
 - 不使用事件属性、`script`、`iframe`、`object`、`embed`、`form`、`base` 或 `svg`；
   链接只使用 HTTP(S)；CSS 不使用 `url()`、`@import`、`expression` 或 `behavior`。
-- 图片样式使用 `display:block; width:100%; height:auto; margin:24px auto;`，并提供有意义的 `alt`。
+- 图片提供有意义的 `alt`；全文一个主强调色，颜色、粗体、大字、背景和下划线不同时堆叠。
 - 最多 8 篇图文；标题最多 32 字、作者 16 字、摘要 120 字；正文最多 19,999 字且 UTF-8 体积小于 1MB。
+- 以上约束由 `python3 scripts/check_html.py 成稿.html` 检查；写入草稿前加 `--final`，确认图片都已是微信图片地址。
 
-不使用脚本时的兜底骨架（脚本已内置 8 套主题骨架，优先用脚本渲染）：
+## 图片上传
 
-```html
-<section style="max-width:100%;padding:0 16px;color:#333333;font-size:16px;line-height:1.8;box-sizing:border-box;">
-  <p style="margin:0 0 20px;color:#666666;">导语</p>
-  <h2 style="margin:32px 0 16px;padding-left:12px;border-left:4px solid #56728f;font-size:20px;line-height:1.4;">小标题</h2>
-  <p style="margin:0 0 18px;text-align:justify;">正文</p>
-  <section style="margin:24px 0;padding:16px;background-color:#f6f7f8;color:#555555;">重点结论</section>
-  <img src="WECHAT_IMAGE_URL" alt="图片说明" style="display:block;width:100%;height:auto;margin:24px auto;" />
-</section>
-```
+图片先按 [imagery.md](imagery.md) 生成并用 `prepare_image.py` 处理达标。上传类工具的 `image_url` 取值有两种：
 
-## 图片：生成 → 处理 → 托管 → 上传
-
-### 生成后先跑脚本
-
-`weixin_oa_upload_content_image` 和 `weixin_oa_add_material` 都只有一个 `image_url` 参数，取值有两种：
-
-- **本地图片（默认）**：先调 `weixin_oa_create_image_upload` 拿 `upload_url`，用 PUT 把本地文件传上去，
-  再把同一个 `upload_url` 作为 `image_url`（见下面「本地图片上传」）；
+- **本地图片（默认）**：走下面「本地图片上传」拿到 `upload_url`，把它作为 `image_url`；
 - **已有公网 HTTPS 地址**：直接作为 `image_url`，由服务端下载。
 
 不要把 base64 或 data URI 塞进参数，服务端不接受，也会白白消耗大量 token。
 
-统一用脚本处理，不要每次手写 Pillow 代码（**必须串行调用**，并发会因输出文件名按秒生成而互相覆盖）：
+### 上传失败时判定故障层
 
-```bash
-PY=python3   # 没有 Pillow 时先 python3 -m pip install pillow
-$PY scripts/prepare_image.py 原始图1.png 原始图2.png -o ./wx_images    # 去水印 → ≤1080px → 压到 <200KB
-$PY scripts/prepare_image.py ./wx_images --check-only                  # 自检：格式/体积/宽度
-```
-
-脚本会裁掉生成图自带的水印（默认顶部 2%、底部 9%）、限制宽度、二分质量压到目标体积，
-并输出 JPEG 魔数与达标情况。生成 prompt 里另外明确写 `no text, no letters, no logos, no watermarks`，
-避免图上出现乱码文字。脚本不达标时不要硬传，先换图或换参数。
-
-### 上传前先判定链路故障性质
-
-任何服务端环节的失败都会统一体现在这两个工具上，只能靠对照测试分层：
-拿一个第三方可信地址（如 `https://www.python.org/static/img/python-logo.png`）做对照测试，据此定位故障层。
+服务端各环节的失败都体现在上传工具上，只能靠对照测试分层：已获上传批准后，
+用一个第三方可信地址（如 `https://www.python.org/static/img/python-logo.png`）传一次做对照。
 
 注意两种图片错误不同：`INVALID_IMAGE_URL` 是地址本身不合规（非 HTTPS 公网地址或带用户信息），
 `INVALID_IMAGE` 是服务端取图失败或被判不安全。完整错误码见 [recovery.md](recovery.md)。
@@ -147,7 +111,7 @@ $PY scripts/prepare_image.py ./wx_images --check-only                  # 自检�
 
 ### 本地图片上传
 
-每张图一个上传链接，**串行**处理：
+每张图一个上传链接，逐张处理：
 
 1. 调 `weixin_oa_create_image_upload`（只读，不需要幂等键），拿到 `upload_url`，30 分钟内有效，只限本人使用。
 2. 在本机终端上传（只能 PUT 一次，一个链接只装一张图）：
@@ -162,6 +126,21 @@ $PY scripts/prepare_image.py ./wx_images --check-only                  # 自检�
    有效期内同一个链接可以再次引用（比如同一张图既做正文图又做封面），过期后重新走第 1 步。
 
 没有终端（无法执行 `curl`）的环境用不了这条路，改用下面的公网托管或手动通道。
+
+### 正文图一键转存（`weixin_oa_localize_content_images`）
+
+工具清单里有它时，正文图不再逐张调 `upload_content_image`：
+
+1. 正文 HTML 里的 `<img src>` 可以是公网 HTTPS 地址，也可以是本地图走完上面第 1–2 步后的 `upload_url`。
+2. 把整篇 HTML 作为 `content` 传入（带 `account_id` 和稳定的 `idempotency_key`）。服务对**每个不同的非微信图片
+   上传一次**（同一地址出现多次只传一次），已是 mmbiz 的图不动；一次最多 20 张不同的图，超出就分段处理。
+3. 返回的 `content` 是替换好地址的 HTML，**只改了 `src`，其余字节不变**，直接用于写草稿；
+   `images` 列出每张图的 `source`、新 `url` 或 `error`。
+4. **部分失败不重来**：有 `error` 的图按错误码单独处理（换图、重建上传链接）后，只把那几张再转存一次；
+   成功的 URL 记进资源复用表。
+5. 封面不走这个工具，仍用 `weixin_oa_add_material`。
+
+转存前先跑 `python3 scripts/check_html.py 成稿.html`，转存后再跑一次 `--final`，确认已没有非微信图片地址。
 
 ### 托管与部署（可选）
 
@@ -179,16 +158,25 @@ $PY scripts/prepare_image.py ./wx_images --check-only                  # 自检�
 生成带 `<img>` 的完整版 HTML，在浏览器中打开，让用户全选（⌘A / Ctrl+A） → 复制 → 粘进公众号后台编辑器，
 后台会自动抓取上传图片；封面在后台单独上传设置。**不要谎称图已经进草稿了。**
 
+## 素材库管理
+
+- `weixin_oa_get_material_count`（只读）：查看图片、图文、语音、视频素材各有多少，判断是否接近上限、要不要清理。
+- `weixin_oa_list_materials`（只读）：按类型分页列出，找出要清理的 `media_id`。
+- `weixin_oa_delete_materials`（**破坏性**）：一次最多 20 个 `media_id`，逐个删除，每个返回
+  `deleted`（已删）/ `failed`（未删，附错误）/ `unknown`（结果未确认）。
+  1. 删除前用执行确认卡列出账号、要删的素材（名称或缩略说明 + `media_id` 后 6 位）和影响：
+     已被草稿或已发文章引用的封面、图片删除后会失效，**删除不可撤销**。
+  2. 用户主动选中「确认删除」后执行，带稳定的 `idempotency_key`。
+  3. 按状态逐条回报；`unknown` 用同一幂等键重放或用 `list_materials` 核实，不换键重删。
+- 只有旧版单个删除工具 `weixin_oa_delete_material` 时，同样逐个确认、逐个回报。
+
 ## 草稿写入与核对
 
-1. 正文图调用 `weixin_oa_upload_content_image`（返回正文可用的 mmbiz URL），封面调用 `weixin_oa_add_material`（返回 `media_id`）。
-   **只上传这次真正新增或换掉的图**，已在复用表里的 URL/`media_id` 直接沿用。
-2. 封面 `media_id` 写入 `thumb_media_id`；正文图 URL 写入 HTML。
-3. 新文章用 `weixin_oa_create_draft`；**同一篇文章的后续修改一律 `weixin_oa_update_draft`**
+1. 封面 `media_id` 写入 `thumb_media_id`；正文用转存后的 HTML。
+2. 新文章用 `weixin_oa_create_draft`；**同一篇文章的后续修改一律 `weixin_oa_update_draft`**
    （指定 `media_id` 和从 0 开始的文章 `index`），不反复新建草稿。
-4. 每次写入都用独立稳定的 `idempotency_key`。同一请求重传保持原键和参数；内容或目标变化后换新键。
-5. 图片插在**语义对应**的段落之后（如“客服场景”段后配客服图），不要堆在开头或全放文末。
-6. 全程带上目标 `connection_id`。
+3. 每次写入都用独立稳定的 `idempotency_key`。同一请求重传保持原键和参数；内容或目标变化后换新键。
+4. 写入后用 `weixin_oa_get_draft` 读回，记录 `draft_digest`。
 
 **微信会改写 HTML，这是正常的，别误判失败：**
 
@@ -221,7 +209,7 @@ $PY scripts/prepare_image.py ./wx_images --check-only                  # 自检�
 
 ## 发表
 
-1. 发表前必须展示：目标账号（昵称/主体 + `connection_id` 后 6 位）、标题、摘要、封面、
+1. 发表前必须展示：目标账号（昵称/主体 + `account_id` 后 6 位）、标题、摘要、封面、
    微信实际保存的正文（读回版本），取得明确批准。批准只对当前 `draft_digest` 有效，
    内容一改就失效。
 2. 批准后调用 `weixin_oa_publish_draft`（带最新 `expected_draft_digest`），再用 `weixin_oa_get_publish_status` 查终态。
