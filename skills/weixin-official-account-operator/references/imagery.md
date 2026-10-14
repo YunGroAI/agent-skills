@@ -16,7 +16,7 @@
 
 | 位置 | 角色 | 要传达的一件事 | 画面主体 | 与主题的关系 |
 |---|---|---|---|---|
-| 封面 | 2.35:1 横图 | 标题的情绪或冲突 | 人物/器物/场景，避免文字 | 定调整篇的第一印象 |
+| 封面 | 2.35:1 横图 + 1:1 裁切版 | 标题的情绪或冲突 | 人物/器物/场景，避免文字 | 定调整篇的第一印象 |
 | 首屏后 | 场景锚点 | 让读者「看见」开头那个场景 | 具体动作，非概念图 | 主色同一色系 |
 | 中段 | 论证配图 | 转折点或方法可视化 | 对照、流程、细节特写 | 用强调色点缀 |
 | 收尾前 | 情绪收束 | 给一个可以停下来的画面 | 留白、远景、余味 | 降饱和，别抢 CTA |
@@ -26,7 +26,8 @@
 
 ## 第二步：每类图的画面要求
 
-- **封面**：横构图、主体占画面 1/3 以上、留一处放标题的安全区；
+- **封面**：横构图、主体占画面 1/3 以上、留一处放标题的安全区；主体放在画面中部 1:1 安全区内，
+  转发卡片和次条用的方形裁切才不会切掉主体（`prepare_image.py --cover` 同时输出两版）；
   高对比、一眼可辨识，缩略到 1/5 仍能看清主体。不要用密集文字排版当封面。
 - **场景图**：有人、有动作、有具体环境细节（工位、厨房、地铁、会议室），
   不要「抽象科技光效 + 齿轮」这类万能图。
@@ -71,19 +72,19 @@ no text, no letters, no logos, no watermarks
 
 ## 第五步：落地链路
 
-1. 生成后串行跑处理脚本（**必须串行**，并发会因输出文件名按秒生成而互相覆盖）：
+1. 生成后跑处理脚本（输出文件名为「原文件名_wx.jpg」，不同目录里的同名图会互相覆盖，先改成不同的文件名）：
 
    ```bash
    PY=python3   # 没有 Pillow 时先 python3 -m pip install pillow
    $PY scripts/prepare_image.py 原始图1.png 原始图2.png -o ./wx_images
+   $PY scripts/prepare_image.py 封面.png --cover -o ./wx_images      # 封面：2.35:1 + 1:1 两版
    $PY scripts/prepare_image.py ./wx_images --check-only
    ```
 
-2. 本地图逐张调 `weixin_oa_create_image_upload` 拿 `upload_url`，`curl --fail --upload-file 图 "<upload_url>"`
-   上传，再把 `upload_url` 作为 `image_url`（细节见 [publishing.md](publishing.md)「本地图片上传」）：
-   正文图调 `weixin_oa_upload_content_image`（拿 mmbiz URL），封面调 `weixin_oa_add_material`
-   （拿 `media_id`，写入 `thumb_media_id`）。全程带 `account_id`。
-3. 图片插在**语义对应**的段落之后，按配图脚本的位置放，不要堆开头或全放文末。
+2. 用户确认入草稿箱后再上传：封面拿 `media_id`，正文图整篇转存为 mmbiz URL，步骤见
+   [publishing.md](publishing.md)「图片上传」。
+3. 图片插在**语义对应**的段落之后，按配图脚本的位置放，不要堆开头或全放文末；
+   需要圆角、阴影、双图并排或相框时用 [editor-kit.md](editor-kit.md) 3.6 的图片组件。
 4. 图注写图里没有的信息（出处、补充、一句点评），不重复正文原句；
    `![说明](url)` 的说明文字会同时作为 alt 和图注。
 5. 图片链路不通时的兜底与错误码判定见 [publishing.md](publishing.md)；
@@ -96,4 +97,4 @@ no text, no letters, no logos, no watermarks
 - [ ] 全套图的色调、光线、镜头语言一致，与所选主题相符。
 - [ ] 图上无文字、无水印、无 logo、无真实品牌与人物。
 - [ ] 图注不是正文的复述；alt 有意义。
-- [ ] 已串行跑过 `prepare_image.py` 并通过 `--check-only`。
+- [ ] 已跑过 `prepare_image.py` 并通过 `--check-only`。

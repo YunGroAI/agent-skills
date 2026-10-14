@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """公众号主题风格渲染器：按主题把 Markdown 正文渲染成微信安全的内联样式 HTML。
 
-三种用法：
+用法：
   1) 看主题库与自动推荐：--list / --suggest 内容.md
-  2) 渲染正文：render_theme.py 内容.md --theme tech -o out.html
-  3) 生成主题对比页：--showcase theme-showcase.html
+  2) 主题选择卡片数据：render_theme.py 内容.md --cards（推荐前 3 + 理由，JSON）
+  3) 用户自己的文章多主题对比：render_theme.py 内容.md --compare 对比.html [--themes a,b,c]
+  4) 渲染正文：render_theme.py 内容.md --theme tech [--density large] -o out.html
+  5) 生成示例内容的全主题对比页：--showcase theme-showcase.html
 
 主题 token 单一数据源是 ../assets/themes.json。支持用品牌色派生定制主题
 （--primary，可选 --accent），派生时自动推导浅色底/描边并按对比度选择 CTA 文字色。
@@ -23,7 +25,7 @@ from pathlib import Path
 
 THEMES_PATH = Path(__file__).resolve().parent.parent / "assets" / "themes.json"
 
-FENCED = re.compile(r"^:::(card|cta|stat|note)\s*(.*)$")
+FENCED = re.compile(r"^:::(card|cta|stat|note|html)\s*(.*)$")
 IMAGE = re.compile(r"^!\[([^\]]*)\]\(([^)\s]+)\)$")
 HEADING = re.compile(r"^(#{1,3})\s+(.*)$")
 HR = re.compile(r"^(-{3,}|\*{3,})$")
@@ -115,6 +117,52 @@ def derive_theme(base: dict, primary: str, accent: str | None, name: str | None)
     derived["tokens"] = tokens
     derived["derived_from"] = base["id"]
     return derived
+
+
+# 阅读密度：只调字号、行高、段距，不动配色与版式骨架
+DENSITY = {
+    "large": {"font_delta": 1, "line_height": 1.95, "gap_delta": 4, "label": "大字宽松"},
+    "standard": None,
+    "compact": {"font_delta": -1, "line_height": 1.7, "gap_delta": -4, "label": "紧凑"},
+}
+
+
+def apply_density(theme: dict, density: str | None) -> dict:
+    spec = DENSITY.get(density or "standard")
+    if not spec:
+        return theme
+    adjusted = json.loads(json.dumps(theme))
+    tokens = adjusted["tokens"]
+    tokens["font_size"] = max(14, min(18, tokens["font_size"] + spec["font_delta"]))
+    tokens["line_height"] = spec["line_height"]
+    tokens["para_gap"] = max(12, tokens["para_gap"] + spec["gap_delta"])
+    adjusted["name"] = f"{theme['name']}·{spec['label']}"
+    return adjusted
+
+
+def theme_cards(ranked: list[dict], bundle: dict, top: int = 3) -> list[dict]:
+    """把推荐结果整理成主题选择卡的选项：前 top 个主题 + 「看全部 / 品牌色」兜底项。"""
+    themes = {th["id"]: th for th in bundle["themes"]}
+    lead = ranked[0]["score"] if ranked else 0
+    cards = []
+    for idx, item in enumerate(ranked[:top]):
+        theme = themes[item["id"]]
+        why = "；".join(item["reasons"][:2]) if item["score"] else "内容信号不明显，按通用适配度排序"
+        cards.append({
+            "id": item["id"],
+            "label": f"{theme['name']} {item['id']}" + ("（推荐）" if idx == 0 and lead > 0 else ""),
+            "description": f"{theme['tagline']}。适合{'、'.join(theme['best_for'][:3])}；依据：{why}",
+            "primary": theme["tokens"]["primary"],
+            "score": item["score"],
+        })
+    cards.append({
+        "id": "more",
+        "label": "看全部主题 / 用品牌色",
+        "description": f"打开对比页看全部 {len(themes)} 套，或给出品牌色从推荐主题派生",
+        "primary": None,
+        "score": None,
+    })
+    return cards
 
 
 # ---------------------------------------------------------------- 自动推荐
@@ -213,7 +261,7 @@ def parse_markdown(text: str) -> list[dict]:
             body: list[str] = []
             i += 1
             while i < len(lines) and lines[i].strip() != ":::":
-                body.append(lines[i].strip())
+                body.append(lines[i].rstrip() if kind == "html" else lines[i].strip())
                 i += 1
             i += 1
             blocks.append({"type": kind, "arg": arg, "text": "\n".join(body).strip()})
@@ -403,6 +451,11 @@ def render(blocks: list[dict], theme: dict, caption: bool = True) -> str:
                     f'{html.escape(block["alt"], quote=False)}</p>')
             continue
 
+        if kind == "html":
+            # Agent 手写的样式组件，原样输出；合规由 check_html.py 把关
+            body.append(block["text"])
+            continue
+
         if kind == "card":
             c = t["card"]
             inner = "".join(
@@ -496,11 +549,17 @@ SAMPLE_MD = """## 为什么这件事现在值得做
 """
 
 
-def build_showcase(bundle: dict, out: Path) -> None:
+def build_showcase(bundle: dict, out: Path, text: str | None = None,
+                   theme_ids: list[str] | None = None, reasons: dict[str, str] | None = None) -> None:
+    """对比页：默认用示例内容渲染全部主题；传入 text/theme_ids 时用用户自己的文章对比指定主题。"""
+    themes = [find_theme(bundle, i) for i in theme_ids] if theme_ids else bundle["themes"]
+    blocks = parse_markdown(text if text is not None else SAMPLE_MD)
+    reasons = reasons or {}
     cards = []
-    for theme in bundle["themes"]:
+    for idx, theme in enumerate(themes, 1):
         t = theme["tokens"]
-        sample, _ = render(parse_markdown(SAMPLE_MD), theme)
+        sample, _ = render(blocks, theme)
+        why = reasons.get(theme["id"], "")
         swatches = "".join(
             f'<span style="display:inline-block;width:26px;height:26px;border-radius:4px;'
             f'background-color:{c};margin-right:6px;vertical-align:middle;'
@@ -509,8 +568,9 @@ def build_showcase(bundle: dict, out: Path) -> None:
         cards.append(f"""
     <section class="theme">
       <header>
-        <h2>{html.escape(theme["name"])} <code>{theme["id"]}</code></h2>
+        <h2>{idx}. {html.escape(theme["name"])} <code>{theme["id"]}</code></h2>
         <p class="tagline">{html.escape(theme["tagline"])}</p>
+        {f'<p class="meta"><b>推荐依据</b>：{html.escape(why)}</p>' if why else ""}
         <p class="meta"><b>适合</b>：{html.escape("、".join(theme["best_for"]))}<br>
         <b>不适合</b>：{html.escape("、".join(theme["avoid_for"]))}</p>
         <div class="swatches">{swatches}
@@ -520,12 +580,14 @@ def build_showcase(bundle: dict, out: Path) -> None:
       <div class="phone">{sample}</div>
     </section>""")
 
+    title = "公众号主题风格对比" if text is None else "你的文章 · 主题对比"
+    subject = "同一段示例内容" if text is None else "这篇文章"
     page = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>公众号主题风格对比</title>
+<title>{title}</title>
 <style>
   body {{ margin:0;padding:32px 24px;background:#f2f3f5;color:#222;
          font-family:-apple-system,"PingFang SC","Helvetica Neue",Arial,sans-serif; }}
@@ -546,8 +608,8 @@ def build_showcase(bundle: dict, out: Path) -> None:
 </style>
 </head>
 <body>
-  <h1>公众号主题风格对比</h1>
-  <p class="intro">同一段示例内容在 {len(bundle["themes"])} 套主题下的真实排版效果。色块依次为
+  <h1>{title}</h1>
+  <p class="intro">{subject}在 {len(themes)} 套主题下的真实排版效果，按编号回复即可选定。色块依次为
      主色 / 强调色 / 浅色底 / 卡片底 / 正文色。选定主题后用
      <code>render_theme.py 正文.md --theme &lt;id&gt;</code> 渲染正式稿；
      如需品牌色，加 <code>--primary #RRGGBB</code> 从最接近的主题派生。</p>
@@ -577,6 +639,10 @@ def main() -> int:
     ap.add_argument("--no-caption", action="store_true", help="图片下方不生成图注")
     ap.add_argument("-o", "--out", type=Path, help="HTML 输出路径，默认打印到标准输出")
     ap.add_argument("--showcase", type=Path, help="生成主题对比预览页到指定路径")
+    ap.add_argument("--cards", action="store_true", help="输出主题选择卡选项（推荐前 3 + 兜底项，JSON）")
+    ap.add_argument("--compare", type=Path, help="用这篇文章渲染多套主题的对比页到指定路径")
+    ap.add_argument("--themes", help="--compare 时要对比的主题 id，逗号分隔；默认推荐前 3")
+    ap.add_argument("--density", choices=sorted(DENSITY), help="阅读密度：large 大字宽松 / standard / compact 紧凑")
     args = ap.parse_args()
 
     bundle = load_themes()
@@ -611,6 +677,18 @@ def main() -> int:
         print(f"\n推荐：{top['id']}（{top['name']}）—— {top['tagline']}")
         return 0
 
+    if args.cards:
+        print(json.dumps(theme_cards(ranked, bundle), ensure_ascii=False, indent=2))
+        return 0
+
+    if args.compare:
+        ids = [i.strip() for i in args.themes.split(",") if i.strip()] if args.themes \
+            else [r["id"] for r in ranked[:3]]
+        why = {r["id"]: "；".join(r["reasons"][:3]) for r in ranked if r["reasons"]}
+        build_showcase(bundle, args.compare, text=text, theme_ids=ids, reasons=why)
+        print(f"对比页已生成：{args.compare}（{'、'.join(ids)}）")
+        return 0
+
     base_id = args.theme or args.base or top["id"]
     base = find_theme(bundle, base_id)
 
@@ -622,6 +700,7 @@ def main() -> int:
             print("备选：" + "、".join(f"{r['id']}({r['score']})" for r in runners), file=sys.stderr)
 
     theme = derive_theme(base, args.primary, args.accent, args.name) if args.primary else base
+    theme = apply_density(theme, args.density)
 
     if args.primary:
         cta_bg, cta_fg = theme["tokens"]["cta"]["bg"], theme["tokens"]["cta"]["text"]
