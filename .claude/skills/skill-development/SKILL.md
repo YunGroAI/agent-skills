@@ -12,7 +12,8 @@ metadata:
 
 ## 职责划分
 
-- `skills/yungroai-skills/`：**唯一**定义 MCP 依赖（检查、引导安装、完整配置）和技能标准安装/更新命令的地方；没有同步脚本，不要再加回来。
+- `skills/yungroai-skills/`：**唯一**定义 MCP 依赖（检查、引导安装、完整配置）、「技能目录」表和技能自动安装/更新流程的地方；
+  安装与更新只通过 Agent 执行 `npx skills` 命令，没有同步脚本，不要再加回来。
 - 业务技能：只放业务流程，开头原样粘贴「前置检查」段落，把依赖与更新交给 `yungroai-skills`。
   不得出现 `mcpServers` 配置或任何更新脚本（CI 检查）。
 
@@ -34,16 +35,21 @@ metadata:
    「开始时」第 1 步写成：先完成「前置检查」；`YunGroAI` 连接可用前不调用该技能的 MCP 工具。
 4. 技能特有的 MCP 工具调用顺序写在「开始时」第 2 步及之后。
 5. 较长的流程放在 `references/*.md`，并在 SKILL.md 中按场景链接。
-6. 在 `README.md` 的技能表中加一行，递增 `connector-meta.json` 的 `version`。
-   新技能推送到 main 后，用户下次执行 `npx skills add YunGroAI/agent-skills --skill '*'` 时装上它，不需要改 `yungroai-skills`。
+6. 在 `skills/yungroai-skills/SKILL.md` 的「技能目录」表中加一行（技能名 + 适用场景），并递增 `yungroai-skills` 的版本（patch）。
+   管家靠这张表把用户任务匹配到技能并按需自动安装；漏登记时 CI 会失败。
+7. 在 `README.md` 的技能表中加一行，递增 `connector-meta.json` 的 `version`。
 
 ## 修改已有技能
 
 - `skills/<name>/` 下有任何改动，都要递增该技能的 `metadata.version`：措辞或修复递增 patch，新增能力递增 minor，流程不兼容的变更递增 major。不递增版本，用户就收不到更新，CI 也会失败。
 - 修改「前置检查」段落时，先改 [assets/preflight-section.md](assets/preflight-section.md)，再同步到**所有**业务技能，并递增它们的版本。
+- **技能目录同步**：新增、删除、改名业务技能，或调整其适用范围 / 触发场景（`description`、能力边界）时，
+  同步更新 `yungroai-skills` 「技能目录」表中对应的行，并递增 `yungroai-skills` 的版本（patch）。
+  只改内部实现、不影响适用范围时无需改目录表。CI 会检查目录表与技能一一对应，且 `description` 变化时管家必须同时改动。
 - 修改 MCP 连接配置时，`mcp.json`、`README.md` 和 `skills/yungroai-skills/SKILL.md` 要一起改，并递增 `yungroai-skills` 的版本。
 
 ## 提交前自检
 
-1. 运行 CI 同款检查：`act pull_request -W .github/workflows/skills-standard.yml`；没有安装 `act` 时，按 CLAUDE.md 的 CI 标注项逐条人工核对。
-2. 完成 CLAUDE.md 中「Manual review」两项无法自动化的检查，并在 PR 中写明受影响的技能、新版本号和实际执行过的检查。
+1. 确认「技能目录」表与本次改动一致（见「修改已有技能」的技能目录同步）。
+2. 运行 CI 同款检查：`act pull_request -W .github/workflows/skills-standard.yml`；没有安装 `act` 时，按 CLAUDE.md 的 CI 标注项逐条人工核对。
+3. 完成 CLAUDE.md 中「Manual review」两项无法自动化的检查，并在 PR 中写明受影响的技能、新版本号和实际执行过的检查。
