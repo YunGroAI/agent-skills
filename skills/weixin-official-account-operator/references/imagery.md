@@ -81,7 +81,7 @@ no text, no letters, no logos, no watermarks
    $PY scripts/prepare_image.py ./wx_images --check-only
    ```
 
-2. 用户确认入草稿箱后再上传：封面拿 `media_id`，正文图整篇转存为 mmbiz URL，步骤见
+2. 用户在成稿确认卡里批准入草稿箱后再上传：封面拿 `media_id`，正文图整篇转存为 mmbiz URL，步骤见
    [publishing.md](publishing.md)「图片上传」。
 3. 图片插在**语义对应**的段落之后，按配图脚本的位置放，不要堆开头或全放文末；
    需要圆角、阴影、双图并排或相框时用 [editor-kit.md](editor-kit.md) 3.6 的图片组件。
