@@ -83,7 +83,7 @@ ABSTRACT_WORDS = ["重要", "关键", "核心", "高效", "优质", "全面", "�
 SENTENCE_SPLIT = re.compile(r"[。！？!?；;…]+|\n+")
 IMAGE_RE = re.compile(r"^!\[")
 HEADING_RE = re.compile(r"^(#{1,3})\s+(.*)$")
-FENCE_RE = re.compile(r"^:::(card|cta|stat|note|html)")
+FENCE_RE = re.compile(r"^:::(card|cta|stat|note|html|masthead|code|steps|tip|warn|follow)")
 QUOTE_RE = re.compile(r"^>")
 
 
@@ -134,13 +134,13 @@ def parse(path: Path) -> dict:
         if FENCE_RE.match(stripped):
             flush()
             kind = FENCE_RE.match(stripped).group(1)
-            if kind == "html":
-                in_html = True
+            if kind in ("html", "code"):
+                in_html = True  # 手写 HTML 与命令/代码块都不是正文文字
             elif kind == "card":
                 cards += 1
             elif kind == "stat":
                 stats += 1
-            elif kind == "cta":
+            elif kind in ("cta", "follow"):
                 ctas += 1
             else:
                 notes += 1

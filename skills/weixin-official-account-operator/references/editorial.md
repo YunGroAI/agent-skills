@@ -4,7 +4,7 @@
 去 AI 味改稿 → 体检与标题评分 → 定稿。
 
 **用户只在两处参与**：前两步合并成一张开工卡（信息够就不出），后面各步由 Agent 按推荐项自主完成，
-选题、标题、摘要、主题的备选和理由统一放进成稿确认卡（[interaction-cards.md](interaction-cards.md) 第 2、3 节）。
+选题、标题、摘要、排版方案的备选和理由统一放进成稿确认卡（[interaction-cards.md](interaction-cards.md) 第 2、3 节）。
 用户点名要自己挑某一环时，才在那一环停一次（同文件第 4、5 节）。
 
 文章生硬、像 AI，几乎都是前三步缺位造成的：不知道谁在说话、手上没有真实细节、
@@ -13,7 +13,7 @@
 - 口吻、素材采访、情绪表达与去 AI 味：[voice.md](voice.md)
 - 场景写作模板：[templates.md](templates.md)
 - 主题简报与热门对标：[benchmarking.md](benchmarking.md)
-- 版式与主题：[themes.md](themes.md)；配图：[imagery.md](imagery.md)
+- 排版设计：[layout-design.md](layout-design.md)；配图：[imagery.md](imagery.md)
 - 排版与发表：[publishing.md](publishing.md)
 
 ## 1. 主题简报
@@ -101,7 +101,7 @@
 ## 7. 去 AI 味改稿
 
 按 [voice.md](voice.md) 第 4、5 节的清单和五遍改稿 SOP 处理初稿：结构 → 口吻 → 细节 → 节奏 → 朗读。
-改完单独体检用 `python3 scripts/lint_article.py 正文.md`；主题选定后再用 `build_article.py` 渲染。
+改完单独体检用 `python3 scripts/lint_article.py 正文.md`；排版方案定下后再用 `build_article.py` 渲染。
 
 ## 8. 手机阅读参考值
 

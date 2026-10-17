@@ -182,7 +182,7 @@ def check(path: Path, final: bool) -> dict:
     if len(checker.colors) > MAX_ACCENTS:
         checker.issues.append({"level": "WARN", "kind": "色彩堆叠", "line": 0,
                                "detail": "非灰色颜色 " + "、".join(sorted(checker.colors)),
-                               "fix": "全文一个主强调色（可加一个浅底色），其余统一成主题色或灰色"})
+                               "fix": "全文一个主强调色（可加一个浅底色），其余统一成主色或灰色"})
     order = {"ERROR": 0, "WARN": 1, "INFO": 2}
     checker.issues.sort(key=lambda x: (order[x["level"]], x["line"]))
     return {"file": str(path), "chars": len(text), "bytes": size, "images": checker.images,
