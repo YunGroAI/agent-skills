@@ -21,22 +21,32 @@ npx skills add /absolute/path/to/agent-skills --skill '*'                       
 Skill-local scripts (run from the skill directory; pure local, no side effects beyond the output path):
 
 ```bash
-python3 scripts/build_article.py article.md -o out.html [--theme tech | --primary #RRGGBB]  # weixin: lint → theme → render
+python3 scripts/build_article.py article.md -o out.html [--design d.json | --palette autumn | --primary #RRGGBB]  # weixin: lint → design → render
 python3 scripts/lint_article.py article.md
-python3 scripts/render_theme.py --list                 # or --suggest / --showcase out.html / --print-tokens
-python3 scripts/prepare_image.py imgs/ -o wx_images    # requires Pillow
+python3 scripts/score_title.py "标题一" "标题二"            # heuristic title scores
+python3 scripts/render_layout.py article.md --auto     # topic-driven design spec (mood + palette + component variants, with reasons)
+python3 scripts/render_layout.py --list                # moods, topic palettes, component variants; --gallery out.html renders them all
+python3 scripts/render_layout.py article.md --cards    # design-picker card options (3 proposals + fallback, JSON)
+python3 scripts/render_layout.py article.md --compare cmp.html   # the user's article under 3 design proposals
+# build_article.py / render_layout.py also take --mood / --set h2=part,... / --density large|standard|compact / --save-design d.json
+python3 scripts/check_html.py out.html [--final] [--preview prev.html]   # WeChat HTML compliance; --final requires mmbiz image URLs
+python3 scripts/prepare_image.py imgs/ -o wx_images [--cover]  # requires Pillow; --cover emits 2.35:1 + 1:1 crops
 ```
 
-Run the CI checks locally with [`act`](https://github.com/nektos/act): `act pull_request -W .github/workflows/skills-standard.yml`.
+There are no unit tests. Smoke-test the weixin scripts with `python3 scripts/build_article.py assets/sample-article.md -o /tmp/s.html`.
+
+Run the CI checks locally with [`act`](https://github.com/nektos/act): `act pull_request -W .github/workflows/skills-standard.yml`. Without `act`, the checks are inline Python heredocs in that workflow (needs `pyyaml`, `pyflakes`); extract a step's script and run it from the repo root — the version-bump step reads `BASE` (set `BASE=$(git rev-parse HEAD)` to compare the working tree against the last commit).
 
 ## Architecture
 
 - **Root connector packaging** — `mcp.json` (single `YunGroAI` streamableHttp server), `connector-meta.json` (WorkBuddy market listing), `icon.svg`. Skills never read these at runtime.
 - **Skills are installed per directory** — `npx skills add` installs only `skills/<name>/`, so a skill must not reference repo files outside its directory. Business skills depend on the sibling skill `yungroai-skills` by name only.
 - **Skill layout** — `SKILL.md` is a router (task type → which reference to read, prerequisites, hard constraints); long procedures live in `references/*.md`; `assets/` and `scripts/` hold skill-specific data and tools.
-- **Entry skill `yungroai-skills`** — the only place that defines the MCP dependency (full `mcpServers` config, check and guided install in the current agent) and the standard install/update command. Every business skill starts with the standard 「前置检查」 section, which hands off to the manager (and guides installing it if missing). There is no sync script: skills are installed and updated only with the standard `npx skills add YunGroAI/agent-skills --skill '*'` (rerunnable: installs missing skills, updates installed ones; it clones via git, so no GitHub API rate limit) or `npx skills update`. Nothing checks or updates automatically at task start; the console's "connect AI assistant" prompt installs all skills up front.
-- **Templates** — `.claude/skills/skill-development/assets/preflight-section.md` is the canonical 「前置检查」 section. That project skill is `metadata.internal: true`, so the CLI never lists or installs it.
-- **WeChat skill constraints** (keep intact): multi-account calls carry a user-named `connection_id`; side effects (uploads, drafts, publish, preview, messages, menus) are batched behind explicit user confirmation.
+- **Entry skill `yungroai-skills`** — the only place that defines the MCP dependency (full `mcpServers` config, check and guided install in the current agent) the 「技能目录」 table (business skill → when to use it), and skill install/update ([`references/skill-sync.md`](skills/yungroai-skills/references/skill-sync.md)). Users install only the manager. At task start it checks MCP, runs `npx skills update` at most once per 24h (timestamp in `${XDG_CACHE_HOME:-~/.cache}/yungroai-skills/last-check`; opt out with `YUNGROAI_SKILLS_AUTO_UPDATE=0`; skipped when the manager was not installed from `YunGroAI/agent-skills`), matches the user's task against the catalog, installs only the missing matched skill with `npx skills add YunGroAI/agent-skills --skill <name>`, then reads that skill's `SKILL.md` and continues. Every business skill starts with the standard 「前置检查」 section, which hands off to the manager (and guides installing it if missing). There is no sync script: everything goes through the skills CLI (git clone, so no GitHub API rate limit). The console's "connect AI assistant" prompt installs only `yungroai-skills` plus the MCP connection.
+- **Templates** — `.claude/skills/skill-development/assets/preflight-section.md` is the canonical 「前置检查」 section; `.claude/skills/skill-development/assets/interaction-section.md` is the canonical 「交互规范」 section. That project skill is `metadata.internal: true`, so the CLI never lists or installs it.
+- **weixin scripts** — `build_article.py` is a thin pipeline that shells out to `lint_article.py` → `render_layout.py` → `check_html.py --strict` (stops on ERRORs); `:::html` fenced blocks pass Agent-written components through the renderer verbatim and are skipped by the linter, so `check_html.py` is their only gate. There are no fixed themes: each article gets a design spec (mood = typography + preferred variants, palette = topic-associated or brand color, one variant per component slot) that the Agent writes or adjusts from `--auto`; all colors derive from the spec's primary/accent. `assets/styles.json` is the single source for palettes, moods and component variants, and `assets/style-gallery.html` is generated by `render_layout.py --gallery`.
+- **MCP tool names and params** — the skill's tool references must match the live YunGroAI server (sibling repo `weixin-mcp`, `docs/tool-contracts.json`); account selection is the `account_id` param. Newer server tools are written as "use if listed, else the old flow" so the skill works against both server versions.
+- **WeChat skill constraints** (keep intact): each session binds one account (account card, first account preselected, "add account" via WeChat third-party-platform QR authorization) and every call carries its `account_id`; side effects (uploads, drafts, publish, preview, messages, tags, deletions) are batched behind explicit user confirmation. The article flow stops only twice by default — an upfront 开工卡 (skipped when the request is already clear) and one 成稿确认卡 that approves the whole chain (draft → readback → preview/publish); everything in between is decided by the Agent with alternatives listed on that card. Don't add new mid-flow stops.
 
 ## Skill development standard
 
@@ -45,12 +55,22 @@ Run the CI checks locally with [`act`](https://github.com/nektos/act): `act pull
 - Frontmatter has `name`, nonempty `description`, and `metadata.version` (semver). No client-generated keys (e.g. `agent_created`) or files (e.g. `_user_meta.json`).
 - **Bump `metadata.version` for any change under `skills/<name>/`** — users only receive updates when the version increases. Patch = wording/fixes, minor = new capability, major = breaking workflow change.
 - Business skills contain the template 「前置检查」 section verbatim before the startup steps, and must not contain `mcpServers` config or update scripts — those live only in `yungroai-skills` (CI).
-- A new business skill needs no manager change: once on `main`, users get it the next time they run `npx skills add YunGroAI/agent-skills --skill '*'`.
+- Every skill (manager included) contains the template 「交互规范」 section verbatim (CI); business skills put it right after 「前置检查」.
+- **Catalog sync**: adding, removing, or renaming a business skill, or changing its scope/triggers (`description`, capability boundaries), requires updating its row in the 「技能目录」 table of `skills/yungroai-skills/SKILL.md` and a patch bump of the manager — otherwise the manager cannot match or install it. Internal-only changes need no catalog edit. CI checks the table matches the business skills one-to-one and that a changed `description` comes with a manager change.
 - Every relative Markdown link resolves; no TODO placeholders in `SKILL.md`.
 
 ### Content
 - Keep `SKILL.md` to routing, prerequisites, and essential constraints; put longer procedures in descriptively named `references/*.md`.
 - Use clear headings and fenced, valid JSON for config examples. Python: stdlib-first, four-space indent, small direct checks, must pass pyflakes (CI).
+
+### Interaction: intent first, option cards (manual review)
+Every point where a skill needs user input, a choice, or a confirmation follows the 「交互规范」 section:
+- **Analyze intent first**: infer from the user's words, context, and data already read; don't ask what can be inferred or defaulted, only what changes the result, and turn inferences into the recommended default.
+- **Option cards, not open questions**: 2–4 concrete options per question, recommended option first and marked 「（推荐）」 with a one-line reason, always an 「其他 / 我来补充」 escape for free input or edits. Use the agent's question/option-card tool when it has one, otherwise a numbered list answerable with a number.
+- **One round**: group the questions for a step (≤ 4 per group); echo briefs, plans and confirmations as short structured cards with 「确认 / 调整某一项 / 换个方向」.
+- **User language**: no internal parameter names or error codes in options.
+- **Cards never replace approval**: side-effect actions need the user to actively pick an explicit 「确认执行」 option naming the action, target and impact; irreversible actions are never the recommended default.
+- Write the concrete cards for a skill's own pause points into its references (e.g. `references/interaction-cards.md`), described by intent rather than tied to any client UI.
 
 ### MCP dependency
 - Only `yungroai-skills/SKILL.md` declares the dependency: server name `YunGroAI` plus the full `mcpServers` config identical to `mcp.json` (CI). Update `mcp.json`, `README.md`, and the manager together, and bump the manager's version.
@@ -68,6 +88,7 @@ Nothing under `skills/` (nor README/connector config) may contain client-specifi
 ### Manual review before submitting (not automatable)
 - A business skill installed without the manager still guides the user to install the manager; everything works on any MCP client.
 - Authorization, publishing, and side-effect instructions describe actual behavior; report which checks you actually performed.
+- Every place the skill asks the user something follows 「交互规范」: intent inferred first, option cards with a recommended default, no bare open-ended questions.
 
 ### Commits and PRs
 Conventional, imperative subjects naming the skill or doc changed. PRs describe user-facing behavior, list affected skills with their new versions, and report validation results.

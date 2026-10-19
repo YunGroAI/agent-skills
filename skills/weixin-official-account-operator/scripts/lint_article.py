@@ -83,7 +83,7 @@ ABSTRACT_WORDS = ["重要", "关键", "核心", "高效", "优质", "全面", "�
 SENTENCE_SPLIT = re.compile(r"[。！？!?；;…]+|\n+")
 IMAGE_RE = re.compile(r"^!\[")
 HEADING_RE = re.compile(r"^(#{1,3})\s+(.*)$")
-FENCE_RE = re.compile(r"^:::(card|cta|stat|note)")
+FENCE_RE = re.compile(r"^:::(card|cta|stat|note|html|masthead|code|steps|tip|warn|follow)")
 QUOTE_RE = re.compile(r"^>")
 
 
@@ -105,6 +105,7 @@ def parse(path: Path) -> dict:
 
     buf: list[str] = []
     buf_start = 0
+    in_html = False
 
     def flush() -> None:
         nonlocal buf
@@ -117,6 +118,9 @@ def parse(path: Path) -> dict:
     for idx, raw in enumerate(lines, start=1):
         line = raw.rstrip()
         stripped = line.strip()
+        if in_html:
+            in_html = stripped != ":::"  # 手写 HTML 组件不参与文字体检，由 check_html.py 检查
+            continue
 
         heading = HEADING_RE.match(stripped)
         if heading:
@@ -130,11 +134,13 @@ def parse(path: Path) -> dict:
         if FENCE_RE.match(stripped):
             flush()
             kind = FENCE_RE.match(stripped).group(1)
-            if kind == "card":
+            if kind in ("html", "code"):
+                in_html = True  # 手写 HTML 与命令/代码块都不是正文文字
+            elif kind == "card":
                 cards += 1
             elif kind == "stat":
                 stats += 1
-            elif kind == "cta":
+            elif kind in ("cta", "follow"):
                 ctas += 1
             else:
                 notes += 1
