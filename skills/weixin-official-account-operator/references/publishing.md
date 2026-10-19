@@ -34,7 +34,7 @@
 
 **阶段 A（自由，可反复，不联网，Agent 自主完成）**
 
-1. 定稿后 `scripts/build_article.py` 渲染（主题按 [themes.md](themes.md) 自动选定，样式组件见 [editor-kit.md](editor-kit.md)）；
+1. 定稿后 `scripts/build_article.py` 渲染（排版按 [layout-design.md](layout-design.md) 由 Agent 按选题设计，样式组件见 [editor-kit.md](editor-kit.md)）；
 2. 生成本地预览（`check_html.py --preview` 可出 375px 手机预览），放进成稿确认卡给用户看真实版式；
 3. 按 [配图规划](imagery.md) 生成图片并用 `scripts/prepare_image.py` 本地处理达标；
 4. 同时做第 0 节的只读预检；全部就绪后出成稿确认卡（[interaction-cards.md](interaction-cards.md) 第 3 节）。
@@ -81,7 +81,7 @@
 
 ## HTML 约束
 
-主题与版式见 [themes.md](themes.md)，样式组件见 [editor-kit.md](editor-kit.md)。无论哪条路线产出的 HTML 都要满足：
+排版设计见 [layout-design.md](layout-design.md)，样式组件见 [editor-kit.md](editor-kit.md)。无论哪条路线产出的 HTML 都要满足：
 
 - 使用单栏结构和内联 `style`，优先 `section`、`p`、`h2`、`strong`、`blockquote`、`ul`/`ol` 和 `img`。
 - 不依赖外部 CSS、JavaScript、动画、表单、iframe、SVG、Flex/Grid 或绝对定位。微信仍可能进一步清理样式。
