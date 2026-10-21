@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import argparse
+import colorsys
 import json
 import re
 import sys
@@ -25,7 +26,7 @@ from pathlib import Path
 
 MAX_CHARS = 19999
 MAX_BYTES = 1024 * 1024
-MAX_ACCENTS = 3          # 非灰色的不同颜色数上限，超过即「色彩堆叠」
+MAX_ACCENTS = 3          # 非灰色的色相家族数上限（同一色相的深浅算一种），超过即「色彩堆叠」
 MIN_FONT_PX = 12
 
 FORBIDDEN_TAGS = {"script", "style", "iframe", "object", "embed", "form", "input", "button", "textarea",
@@ -63,6 +64,20 @@ def is_neutral(rgb: tuple[int, int, int]) -> bool:
         return True
     saturation = (hi - lo) / (hi + lo if lightness <= 0.5 else 510 - hi - lo)
     return saturation < 0.25
+
+
+def hue_families(colors: dict[str, tuple[int, int, int]]) -> list[list[str]]:
+    """按色相把颜色归组：主色和它派生的深浅（色相差 ≤ 18°）算同一种颜色。"""
+    groups: list[tuple[float, list[str]]] = []
+    for name, (r, g, b) in sorted(colors.items()):
+        hue = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)[0] * 360
+        for h, members in groups:
+            if min(abs(h - hue), 360 - abs(h - hue)) <= 18:
+                members.append(name)
+                break
+        else:
+            groups.append((hue, [name]))
+    return [members for _, members in groups]
 
 
 class Checker(HTMLParser):
@@ -179,9 +194,10 @@ def check(path: Path, final: bool) -> dict:
     if size >= MAX_BYTES:
         checker.issues.append({"level": "ERROR", "kind": "体积超限", "line": 0,
                                "detail": f"{size / 1024:.0f} KB", "fix": "正文 HTML 需小于 1MB：精简重复的内联样式"})
-    if len(checker.colors) > MAX_ACCENTS:
+    families = hue_families(checker.colors)
+    if len(families) > MAX_ACCENTS:
         checker.issues.append({"level": "WARN", "kind": "色彩堆叠", "line": 0,
-                               "detail": "非灰色颜色 " + "、".join(sorted(checker.colors)),
+                               "detail": f"{len(families)} 种色相：" + "；".join("、".join(f) for f in families),
                                "fix": "全文一个主强调色（可加一个浅底色），其余统一成主色或灰色"})
     order = {"ERROR": 0, "WARN": 1, "INFO": 2}
     checker.issues.sort(key=lambda x: (order[x["level"]], x["line"]))

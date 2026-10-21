@@ -9,10 +9,8 @@
   2) 按方案渲染：render_layout.py 正文.md [--design 方案.json] [--mood tech] [--palette autumn]
        [--primary #RRGGBB] [--accent #RRGGBB] [--set h2=part,figure=round] [--density large]
        -o out.html [--save-design 方案.json]
-  3) 方案选择卡（3 个方案 + 兜底，JSON）：render_layout.py 正文.md --cards
-  4) 用这篇文章对比几个方案：render_layout.py 正文.md --compare 方案对比.html
-  5) 样式库预览（每个组件的全部样式 + 全部配色）：render_layout.py --gallery 样式库.html [--palette x]
-  6) 列出调性 / 配色 / 组件样式：render_layout.py --list
+  3) 样式库预览（每个组件的全部样式 + 全部配色）：render_layout.py --gallery 样式库.html [--palette x]
+  4) 列出调性 / 配色 / 组件样式：render_layout.py --list
 
 样式库唯一数据源是 ../assets/styles.json。仅依赖标准库。
 """
@@ -28,12 +26,12 @@ from pathlib import Path
 
 LIBRARY_PATH = Path(__file__).resolve().parent.parent / "assets" / "styles.json"
 
-FENCED = re.compile(r"^:::(card|cta|stat|note|html|masthead|code|steps|tip|warn|follow)\s*(.*)$")
+FENCED = re.compile(r"^:::(card|cta|stat|note|html|masthead|code|steps|tip|warn|follow|points|compare)\s*(.*)$")
 RAW_BLOCKS = ("html", "code")  # 保留原始缩进与空格的块
 IMAGE = re.compile(r"^!\[([^\]]*)\]\(([^)\s]+)\)$")
 HEADING = re.compile(r"^(#{1,3})\s+(.*)$")
 HR = re.compile(r"^(-{3,}|\*{3,})$")
-NUMBERED_H2 = {"chip", "part", "no", "numeral"}  # 自带序号的标题样式
+NUMBERED_H2 = {"chip", "part", "no", "numeral", "hero"}  # 自带序号的标题样式
 CN_NUM = "零壹贰叁肆伍陆柒捌玖拾"
 MONO = "Menlo,Consolas,'Courier New',monospace"
 
@@ -327,10 +325,14 @@ def design_tokens(design: dict, lib: dict) -> dict:
         "primary_soft": mix(primary, "#ffffff", 0.9),
         "primary_line": mix(primary, "#ffffff", 0.6),
         "dark": mix(primary, "#000000", 0.78),
+        "deep": mix(primary, "#000000", 0.55),
         "text": text,
         "heading": mix(text, "#000000", 0.25),
         "text_muted": mix(text, "#ffffff", 0.3),
         "bg_soft": mix(primary, "#f7f7f7", 0.94),
+        "accent_soft": mix(accent, "#ffffff", 0.9),
+        "mark": mix(accent, "#ffffff", 0.8),
+        "pop": accent if accent != primary else mix(primary, "#ffffff", 0.45),
         "divider": mix(primary, "#e6e6e6", 0.88),
         "font_size": typo["font_size"],
         "line_height": typo["line_height"],
@@ -347,6 +349,9 @@ def design_tokens(design: dict, lib: dict) -> dict:
 def inline(text: str, t: dict) -> str:
     """转义后应用行内样式：加粗、斜体、代码、链接。"""
     out = html.escape(text, quote=False)
+    out = re.sub(r"==(.+?)==",
+                 lambda m: f'<strong style="padding:0 2px;background-color:{t["mark"]};color:{t["heading"]};">'
+                           f'{m.group(1)}</strong>', out)
     out = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", out)
     out = re.sub(r"(?<![*\w])\*([^*\n]+?)\*(?!\*)", r"<em>\1</em>", out)
     out = re.sub(r"`([^`]+)`",
@@ -483,6 +488,14 @@ def render_h2(text: str, idx: int, t: dict) -> str:
                 f'line-height:1.3;letter-spacing:2px;color:{t["accent_ink"]};">{cn_num(idx)}</p>'
                 f'<h2 style="margin:6px 0 0;{base}letter-spacing:3px;color:{t["heading"]};">{body}</h2>'
                 f'{short_bar(t, "center")}</section>')
+    if style == "hero":
+        return (f'<section style="margin:40px 0 18px;"><h2 style="margin:0;{base}color:{t["heading"]};">'
+                f'<span style="margin-right:12px;font-size:{fs + 19}px;line-height:1;font-family:Georgia,serif;'
+                f'font-style:italic;color:{t["primary_ink"]};vertical-align:-4px;">{idx:02d}</span>{body}</h2>'
+                f'<p style="margin:10px 0 0;font-size:0;line-height:0;">'
+                f'<span style="display:inline-block;width:56px;height:3px;background-color:{t["primary"]};"></span>'
+                f'<span style="display:inline-block;width:14px;height:3px;margin-left:4px;'
+                f'background-color:{t["pop"]};"></span></p></section>')
     if style == "center":
         return (f'<h2 style="margin:36px 0 18px;{base}color:{t["heading"]};text-align:center;padding:14px 0;'
                 f'border-top:1px solid {t["divider"]};border-bottom:1px solid {t["divider"]};">{prefix}{body}</h2>')
@@ -509,6 +522,12 @@ def render_h3(text: str, t: dict) -> str:
 
 def render_lead(text: str, t: dict) -> str:
     style, fs, lh, gap = t["c"]["lead"], t["font_size"], t["line_height"], t["para_gap"]
+    if style == "guide":
+        return (f'<section style="margin:0 0 {gap + 8}px;padding:16px 16px 14px;background-color:{t["bg_soft"]};'
+                f'border-left:4px solid {t["primary"]};border-radius:0 8px 8px 0;">'
+                f'<p style="margin:0 0 6px;font-size:13px;line-height:1.4;font-weight:bold;letter-spacing:2px;'
+                f'color:{t["primary_ink"]};">导读</p><p style="margin:0;font-size:{fs}px;line-height:{lh};'
+                f'color:{t["heading"]};">{inline(text, t)}</p></section>')
     if style == "boxed":
         return (f'<section style="margin:0 0 {gap + 6}px;padding:14px 16px;background-color:{t["bg_soft"]};'
                 f'border-radius:6px;"><p style="margin:0;font-size:{fs}px;line-height:{lh};color:{t["text_muted"]};">'
@@ -525,6 +544,13 @@ def render_quote(text: str, t: dict) -> str:
                 f'line-height:1;font-family:Georgia,serif;color:{t["primary_line"]};">“</p>'
                 f'<p style="margin:4px 0 0;font-size:{fs}px;line-height:{lh};font-weight:bold;color:{t["heading"]};">'
                 f'{inline(text, t)}</p>{short_bar(t, "center", "14px 0 0")}</section>')
+    if style == "card":
+        return (f'<section style="margin:30px 0;padding:22px 20px 20px;background-color:{t["deep"]};'
+                f'border-radius:10px;"><p style="margin:0;font-size:44px;line-height:0.8;font-family:Georgia,serif;'
+                f'color:{t["pop"]};">“</p><p style="margin:10px 0 0;font-size:{fs + 1}px;line-height:{lh};'
+                f'font-weight:bold;letter-spacing:1px;color:#ffffff;">{inline(text, t)}</p>'
+                f'<p style="margin:14px 0 0;font-size:0;line-height:0;text-align:right;"><span style="display:inline-block;'
+                f'width:28px;height:3px;background-color:{t["pop"]};"></span></p></section>')
     if style == "soft":
         return (f'<blockquote style="margin:24px 0;padding:16px 18px;background-color:{t["primary_soft"]};'
                 f'border-radius:8px;color:{t["text"]};font-size:{fs}px;line-height:{lh};">'
@@ -534,7 +560,7 @@ def render_quote(text: str, t: dict) -> str:
             f'line-height:{lh};">{inline(text, t)}</blockquote>')
 
 
-def render_card(text: str, t: dict) -> str:
+def render_card(text: str, t: dict, label: str = "") -> str:
     style, fs, lh = t["c"]["card"], t["font_size"], t["line_height"]
     paras = [p for p in text.split("\n") if p.strip()] or [text]
     inner = "".join(f'<p style="margin:0 0 {0 if k == len(paras) - 1 else 10}px;line-height:{lh};'
@@ -546,7 +572,64 @@ def render_card(text: str, t: dict) -> str:
     else:
         box = (f'background-color:{t["bg_soft"]};border-left:3px solid {t["primary"]};'
                f'border-radius:6px;color:{t["text_muted"]};')
-    return f'<section style="margin:24px 0;padding:16px 18px;{box}">{inner}</section>'
+    tag = (f'<p style="margin:0 0 10px;"><span style="display:inline-block;padding:2px 10px;font-size:12px;'
+           f'line-height:1.7;font-weight:bold;letter-spacing:1px;background-color:{t["primary"]};'
+           f'color:{t["on_primary"]};border-radius:3px;">{inline(label, t)}</span></p>') if label else ""
+    return f'<section style="margin:24px 0;padding:16px 18px;{box}">{tag}{inner}</section>'
+
+
+def render_points(block: dict, t: dict) -> str:
+    """要点卡 :::points 标签；每行一条要点（2–4 条最好），适合放在导语之后。"""
+    fs, lh = t["font_size"], t["line_height"]
+    rows = [ln for ln in block["text"].split("\n") if ln.strip()]
+    label = inline(block["arg"] or "本文要点", t)
+    if t["c"].get("points") == "cards":
+        items = "".join(
+            f'<section style="margin:0 0 10px;padding:12px 14px;background-color:#ffffff;border-radius:8px;'
+            f'border-top:3px solid {t["primary"] if k else t["pop"]};"><p style="margin:0;font-size:{fs - 1}px;'
+            f'line-height:{lh};color:{t["text"]};"><span style="margin-right:8px;font-weight:bold;font-family:Georgia,'
+            f'serif;color:{t["primary_ink"]};">{k + 1:02d}</span>{inline(r, t)}</p></section>'
+            for k, r in enumerate(rows))
+        return (f'<section style="margin:24px 0;padding:16px 14px 6px;background-color:{t["primary_soft"]};'
+                f'border-radius:10px;"><p style="margin:0 0 12px;font-size:14px;font-weight:bold;letter-spacing:2px;'
+                f'color:{t["primary_ink"]};">{label}</p>{items}</section>')
+    items = "".join(
+        f'<p style="margin:0 0 {0 if k == len(rows) - 1 else 12}px;font-size:{fs - 1}px;line-height:{lh};'
+        f'color:{t["text"]};"><span style="display:inline-block;width:22px;height:22px;margin-right:10px;'
+        f'line-height:22px;text-align:center;font-size:12px;font-weight:bold;border-radius:50%;'
+        f'background-color:{t["primary"]};color:{t["on_primary"]};vertical-align:1px;">{k + 1}</span>{inline(r, t)}</p>'
+        for k, r in enumerate(rows))
+    return (f'<section style="margin:24px 0;padding:18px 16px;border:1px solid {t["primary_line"]};border-radius:10px;">'
+            f'<p style="margin:0 0 14px;font-size:14px;font-weight:bold;letter-spacing:2px;color:{t["primary_ink"]};">'
+            f'<span style="display:inline-block;width:4px;height:14px;margin-right:8px;vertical-align:-1px;'
+            f'background-color:{t["pop"]};"></span>{label}</p>{items}</section>')
+
+
+def render_compare(block: dict, t: dict) -> str:
+    """对照卡 :::compare 左标题 | 右标题；每行「左 | 右」。左边是旧/误解，右边是新/真相（高亮）。"""
+    fs, lh = t["font_size"], t["line_height"]
+    left, right = split_pair(block["arg"] or "以前 | 现在")
+    rows = [split_pair(ln) for ln in block["text"].split("\n") if ln.strip()]
+
+    def col(title: str, cells: list[str], hot: bool, width: str) -> str:
+        head_bg = t["primary"] if hot else t["divider"]
+        head_fg = t["on_primary"] if hot else t["heading"]
+        body = "".join(f'<p style="margin:0 0 10px;font-size:{fs - 1}px;line-height:{lh};'
+                       f'color:{t["heading"] if hot else t["text_muted"]};">{inline(c, t)}</p>' for c in cells if c)
+        return (f'<section style="display:inline-block;width:{width};vertical-align:top;box-sizing:border-box;'
+                f'white-space:normal;font-size:{fs}px;'
+                f'background-color:{t["primary_soft"] if hot else t["bg_soft"]};border-radius:8px;overflow:hidden;">'
+                f'<p style="margin:0;padding:8px 12px;font-size:14px;font-weight:bold;text-align:center;'
+                f'background-color:{head_bg};color:{head_fg};">{inline(title, t)}</p>'
+                f'<section style="padding:12px 12px 2px;">{body}</section></section>')
+
+    lefts, rights = [a for a, _ in rows], [b for _, b in rows]
+    if t["c"].get("compare") == "stacked":
+        return (f'<section style="margin:24px 0;">{col(left, lefts, False, "100%")}'
+                f'<p style="margin:8px 0;text-align:center;font-size:16px;color:{t["pop"]};">▼</p>'
+                f'{col(right, rights, True, "100%")}</section>')
+    return (f'<section style="margin:24px 0;white-space:nowrap;font-size:0;">{col(left, lefts, False, "48%")}'
+            f'<section style="display:inline-block;width:4%;"></section>{col(right, rights, True, "48%")}</section>')
 
 
 def render_cta(text: str, t: dict) -> str:
@@ -600,6 +683,15 @@ def render_figure(block: dict, t: dict, caption: bool) -> str:
         deco = f"padding:6px;box-sizing:border-box;border:1px solid {t['primary_line']};border-radius:4px;"
     elif style == "round":
         deco = "border-radius:14px;"
+    elif style == "card":
+        out = (f'<section style="margin:26px 0;padding:8px 8px 10px;background-color:{t["bg_soft"]};border-radius:10px;">'
+               f'<img src="{src}" alt="{alt}" style="display:block;width:100%;height:auto;margin:0 auto;'
+               f'border-radius:6px;" />')
+        if caption and block["alt"]:
+            out += (f'<p style="margin:10px 4px 0;font-size:13px;line-height:1.6;color:{t["text_muted"]};">'
+                    f'<span style="display:inline-block;width:3px;height:12px;margin-right:8px;vertical-align:-1px;'
+                    f'background-color:{t["pop"]};"></span>{html.escape(block["alt"], quote=False)}</p>')
+        return out + "</section>"
     else:
         deco = ""
     out = (f'<section style="margin:24px 0;text-align:center;">'
@@ -617,6 +709,23 @@ def render_masthead(block: dict, t: dict) -> str:
     title = inline(lines[0], t) if lines else ""
     subs = lines[1:]
     kicker = inline(block["arg"], t) if block["arg"] else ""
+
+    if style == "poster":
+        chip = (f'<p style="margin:0 0 16px;"><span style="display:inline-block;padding:3px 12px;font-size:12px;'
+                f'font-weight:bold;letter-spacing:2px;background-color:{t["pop"]};color:{readable_text(t["pop"])};'
+                f'border-radius:2px;">'
+                f'{kicker}</span></p>') if kicker else ""
+        sub = "".join(f'<p style="margin:10px 0 0;font-size:{fs - 1}px;line-height:1.75;color:#c9d3e3;">'
+                      f'{inline(s, t)}</p>' for s in subs)
+        return (f'<section style="margin:0 0 30px;background-color:{t["deep"]};border-radius:10px;overflow:hidden;">'
+                f'<section style="height:5px;line-height:5px;font-size:0;background-color:{t["pop"]};">&nbsp;</section>'
+                f'<section style="padding:26px 22px 24px;">{chip}'
+                f'<p style="margin:0;font-size:{fs + 10}px;line-height:1.35;font-weight:bold;letter-spacing:1px;'
+                f'color:#ffffff;">{title}</p>{sub}'
+                f'<p style="margin:20px 0 0;font-size:0;line-height:0;">'
+                f'<span style="display:inline-block;width:48px;height:3px;background-color:{t["primary_line"]};"></span>'
+                f'<span style="display:inline-block;width:12px;height:3px;margin-left:5px;'
+                f'background-color:{t["pop"]};"></span></p></section></section>')
 
     if style == "dark":
         chip = (f'<p style="margin:0 0 14px;"><span style="display:inline-block;padding:2px 10px;'
@@ -789,6 +898,11 @@ def render_ending(t: dict) -> str:
     if style == "end":
         return (f'<p style="margin:36px 0 12px;text-align:center;font-size:12px;letter-spacing:4px;'
                 f'color:{t["text_muted"]};">— END —</p>')
+    if style == "sign":
+        line = (f'<span style="display:inline-block;width:60px;height:1px;vertical-align:middle;'
+                f'background-color:{t["primary_line"]};"></span>')
+        return (f'<p style="margin:40px 0 12px;text-align:center;font-size:12px;line-height:1;letter-spacing:4px;'
+                f'color:{t["primary_ink"]};">{line}<span style="margin:0 12px;font-weight:bold;">END</span>{line}</p>')
     if style == "ornament":
         orn = t["ornament"]
         return (f'<p style="margin:36px 0 12px;text-align:center;font-size:12px;letter-spacing:6px;'
@@ -849,7 +963,11 @@ def render(blocks: list[dict], t: dict, caption: bool = True) -> tuple[str, list
         elif kind == "html":
             body.append(block["text"])  # Agent 手写的组件原样输出；合规由 check_html.py 把关
         elif kind == "card":
-            body.append(render_card(block["text"], t))
+            body.append(render_card(block["text"], t, block.get("arg", "")))
+        elif kind == "points":
+            body.append(render_points(block, t))
+        elif kind == "compare":
+            body.append(render_compare(block, t))
         elif kind == "cta":
             body.append(render_cta(block["text"] or block.get("arg", ""), t))
         elif kind == "stat":
@@ -867,50 +985,6 @@ def render(blocks: list[dict], t: dict, caption: bool = True) -> tuple[str, list
 
 
 # ---------------------------------------------------------------- 方案备选、对比页与样式库
-
-def proposals(text: str, lib: dict, hint: str = "", spec: dict | None = None) -> list[dict]:
-    """三个可比方案：自动方案、换调性（同配色）、换配色（同调性）。"""
-    main = resolve_design(text, lib, spec, hint)
-    out = [main]
-    second = next((m["id"] for m in score_moods(text, lib, hint) if m["id"] != main["mood"]), None)
-    if second:
-        alt = resolve_design(text, lib, {"mood": second, "colors": main["colors"]}, hint)
-        alt["name"] = f"{main['name'].split(' · ')[0]} · {by_id(lib['moods'], second, '调性')['name']}"
-        out.append(alt)
-    # 换配色：优先选题联想到的其他颜色；没有就用第二调性的默认色，不按列表顺序硬凑
-    hits = [p["id"] for p in score_palettes(text, lib, main["mood"], hint)
-            if p["reasons"] and p["reasons"][0].startswith("选题联想")]
-    fallback = [by_id(lib["moods"], second, "调性")["palette"]] if second else []
-    for pal_id in hits + fallback:
-        if pal_id != main["palette"] and \
-                normalize(by_id(lib["palettes"], pal_id, "配色")["primary"]) != main["colors"]["primary"]:
-            out.append(resolve_design(text, lib, {"mood": main["mood"], "palette": pal_id}, hint))
-            break
-    return out
-
-
-def summary(design: dict, lib: dict) -> str:
-    c = design["components"]
-    names = lib["components"]
-    picks = [f"{names[s]['_slot'].split('（')[0]}·{names[s][c[s]].split('：')[0]}"
-             for s in ("masthead", "h2", "quote", "figure", "divider") if s in c]
-    return "、".join(picks)
-
-
-def cards(text: str, lib: dict, hint: str = "", spec: dict | None = None) -> list[dict]:
-    out = []
-    for idx, d in enumerate(proposals(text, lib, hint, spec)):
-        mood = by_id(lib["moods"], d["mood"], "调性")
-        out.append({
-            "design": d,
-            "label": d["name"] + ("（推荐）" if idx == 0 else ""),
-            "description": f"{mood['desc']}；{summary(d, lib)}" + (f"；依据：{d['reasons'][0]}" if idx == 0 else ""),
-            "primary": d["colors"]["primary"],
-        })
-    out.append({"design": None, "label": "看样式库 / 用品牌色 / 我来指定",
-                "description": "打开样式库挑某个组件的样式，或给出品牌色、指定调性", "primary": None})
-    return out
-
 
 PAGE_CSS = """
   body { margin:0;padding:32px 24px;background:#f2f3f5;color:#222;
@@ -939,37 +1013,15 @@ def page(title: str, intro: str, body: str) -> str:
             f'<footer>本页仅为本地预览；实际效果以微信内为准，微信会改写部分内联样式。</footer>\n</body>\n</html>\n')
 
 
-def swatches(t: dict) -> str:
-    return "".join(f'<span class="sw" style="background:{c}"></span>'
-                   for c in (t["primary"], t["accent"], t["primary_soft"], t["primary_line"], t["text"]))
-
-
-def build_compare(text: str, lib: dict, out: Path, designs: list[dict]) -> None:
-    blocks = parse_markdown(text)
-    boxes = []
-    for idx, d in enumerate(designs, 1):
-        t = design_tokens(d, lib)
-        rendered, _ = render(blocks, t)
-        spec = {k: d[k] for k in ("mood", "palette", "colors", "components")}
-        boxes.append(
-            f'<section class="box"><h3>{idx}. {html.escape(d["name"])}</h3>'
-            f'<p class="meta">{swatches(t)} {t["font_size"]}px / {t["line_height"]} / 字距 {t["letter_spacing"]}</p>'
-            f'<p class="meta">{html.escape("；".join(d["reasons"][:4]))}</p>'
-            f'<pre>{html.escape(json.dumps(spec, ensure_ascii=False))}</pre>'
-            f'<div class="phone">{rendered}</div></section>')
-    intro = ("同一篇文章在几个设计方案下的真实效果，按编号回复即可选定；也可以只换某一项，"
-             "例如「用 1 的配色 + 2 的标题样式」。每个方案下方的 JSON 可直接存成方案文件用 --design 渲染。")
-    out.write_text(page("你的文章 · 排版方案对比", intro, f'<div class="grid">{"".join(boxes)}</div>'),
-                   encoding="utf-8")
-
-
 GALLERY_SAMPLES = {
     "masthead": [{"type": "masthead", "arg": "栏目名 · 本期", "text": "一句话说清这篇讲什么\n副题：给读者一个读下去的理由"}],
     "h2": [{"type": "h", "level": 2, "text": "二级标题示例"}],
     "h3": [{"type": "h", "level": 3, "text": "三级标题示例"}],
     "lead": [{"type": "p", "text": "导语示例：首段两三句说清读者为什么要读下去。"}],
     "quote": [{"type": "quote", "text": "引语示例：一句值得被单独拎出来的话。"}],
-    "card": [{"type": "card", "text": "结论卡示例：把全文最该被记住的一句话放在这里。"}],
+    "card": [{"type": "card", "arg": "一句话结论", "text": "结论卡示例：把全文最该被记住的一句话放在这里。"}],
+    "points": [{"type": "points", "arg": "本文要点", "text": "第一条要点\n第二条要点，==重点高亮==\n第三条要点"}],
+    "compare": [{"type": "compare", "arg": "很多人以为 | 实际上", "text": "旧认知一 | 新事实一\n旧认知二 | 新事实二"}],
     "cta": [{"type": "cta", "text": "回复关键词，领取完整清单。"}],
     "stat": [{"type": "stat", "arg": "128 | 数字块示例注解", "text": ""}],
     "divider": [{"type": "hr"}],
@@ -1038,8 +1090,6 @@ def main() -> int:
     ap.add_argument("--numbered", action="store_true", help="给不带序号的标题样式加 01/02 编号")
     ap.add_argument("--density", choices=sorted(DENSITY), help="阅读密度：large 大字宽松 / standard / compact 紧凑")
     ap.add_argument("--auto", action="store_true", help="只输出设计方案 JSON（含理由），不渲染")
-    ap.add_argument("--cards", action="store_true", help="输出方案选择卡选项（3 个方案 + 兜底项，JSON）")
-    ap.add_argument("--compare", type=Path, help="用这篇文章渲染几个方案的对比页到指定路径")
     ap.add_argument("--gallery", type=Path, help="生成样式库预览页（全部组件样式 + 全部配色）")
     ap.add_argument("--list", action="store_true", help="列出调性、配色与组件样式")
     ap.add_argument("--save-design", type=Path, help="把最终设计方案写入 JSON，便于复用与改版")
@@ -1087,15 +1137,6 @@ def main() -> int:
     if args.input is None:
         ap.error("需要提供正文文件（或用 --list / --gallery）")
     text = sys.stdin.read() if str(args.input) == "-" else args.input.read_text(encoding="utf-8")
-
-    if args.cards:
-        print(json.dumps(cards(text, lib, args.hint, spec), ensure_ascii=False, indent=2))
-        return 0
-    if args.compare:
-        designs = proposals(text, lib, args.hint, spec)
-        build_compare(text, lib, args.compare, designs)
-        print(f"方案对比页已生成：{args.compare}（{'、'.join(d['name'] for d in designs)}）")
-        return 0
 
     design = resolve_design(text, lib, spec, args.hint)
     if args.auto:
