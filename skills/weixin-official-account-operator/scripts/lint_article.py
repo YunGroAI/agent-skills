@@ -83,7 +83,7 @@ ABSTRACT_WORDS = ["重要", "关键", "核心", "高效", "优质", "全面", "�
 SENTENCE_SPLIT = re.compile(r"[。！？!?；;…]+|\n+")
 IMAGE_RE = re.compile(r"^!\[")
 HEADING_RE = re.compile(r"^(#{1,3})\s+(.*)$")
-FENCE_RE = re.compile(r"^:::(card|cta|stat|note|html|masthead|code|steps|tip|warn|follow)")
+FENCE_RE = re.compile(r"^:::(card|cta|stat|note|html|masthead|code|steps|tip|warn|follow|points|compare)")
 QUOTE_RE = re.compile(r"^>")
 
 
@@ -102,6 +102,7 @@ def parse(path: Path) -> dict:
     stats = 0
     ctas = 0
     notes = 0
+    kinds: set[str] = set()                        # 用到的版式组件种类
 
     buf: list[str] = []
     buf_start = 0
@@ -134,6 +135,7 @@ def parse(path: Path) -> dict:
         if FENCE_RE.match(stripped):
             flush()
             kind = FENCE_RE.match(stripped).group(1)
+            kinds.add(kind)
             if kind in ("html", "code"):
                 in_html = True  # 手写 HTML 与命令/代码块都不是正文文字
             elif kind == "card":
@@ -152,6 +154,7 @@ def parse(path: Path) -> dict:
         if QUOTE_RE.match(stripped):
             flush()
             quotes += 1
+            kinds.add("quote")
             continue
         if stripped in ("---", "***", "___"):
             flush()
@@ -175,6 +178,7 @@ def parse(path: Path) -> dict:
         "stats": stats,
         "ctas": ctas,
         "notes": notes,
+        "kinds": kinds | ({"img"} if images else set()) | ({"mark"} if re.search(r"==[^=\n]+==", text) else set()),
     }
 
 
@@ -360,6 +364,12 @@ def check(doc: dict) -> tuple[list[dict], dict]:
     if doc["images"] == 0 and total > 600:
         add("WARN", "无配图", f"{total} 字没有一张图",
             "按配图脚本补 2–4 张，或明确说明本篇不配图")
+    rich = doc["kinds"] & {"masthead", "points", "quote", "card", "compare", "steps", "stat", "img", "mark", "tip"}
+    if total > 1200 and len(rich) < 5:
+        missing = [n for k, n in (("masthead", "刊头"), ("points", "要点卡"), ("quote", "金句"), ("compare", "对照卡"),
+                                  ("card", "结论卡"), ("mark", "==重点高亮=="), ("img", "配图")) if k not in rich]
+        add("WARN", "版式偏单调", f"{total} 字只用了 {len(rich)} 种版式组件",
+            "长文至少用 5 种，按内容挑：" + "、".join(missing[:5]) + "；每种都要有内容依据，不为凑数硬加")
     if total > THRESHOLDS["max_article_chars"]:
         add("INFO", "篇幅偏长", f"{total} 字，约 {metrics['预计手机屏数']} 屏",
             "确认读者会读完；必要时拆成上下篇或加强小标题与配图密度")

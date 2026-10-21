@@ -16,7 +16,7 @@
     {"id": "winter", "name": "冬日雾蓝", "primary": "#3d5a80", "accent": null, "festival": true, "image_tone": "雾蓝 + 冷白，雪景、热饮、室内暖光", "topics": ["冬天", "冬日", "立冬", "冬至", "下雪", "初雪", "寒假"]},
     {"id": "tech-blue", "name": "科技蓝", "primary": "#0f62d6", "accent": null, "image_tone": "冷蓝 + 深色底，几何、光感、抽象但克制", "topics": ["ai", "人工智能", "大模型", "智能体", "agent", "算法", "算力", "芯片", "gpu", "编程", "开源", "架构", "数字化", "代码", "开发者", "云计算", "模型", "机器人", "自动化", "saas"]},
     {"id": "cyber-violet", "name": "未来紫", "primary": "#5b3fd1", "accent": null, "image_tone": "蓝紫渐变 + 深色，霓虹、未来感、数字空间", "topics": ["元宇宙", "aigc", "web3", "区块链", "虚拟", "游戏", "电竞", "未来"]},
-    {"id": "security-navy", "name": "安全藏蓝", "primary": "#24477a", "accent": null, "image_tone": "藏蓝 + 冷灰，盾牌、锁、秩序感", "topics": ["网络安全", "安全", "反诈", "隐私", "合规", "法律", "法规", "律师", "防骗"]},
+    {"id": "security-navy", "name": "安全藏蓝", "primary": "#24477a", "accent": null, "image_tone": "藏蓝 + 冷灰，盾牌、锁、秩序感", "topics": ["网络安全", "安全", "反诈", "隐私", "合规", "法律", "法规", "律师", "防骗", "禁令", "制裁", "出口管制", "实体清单", "监管", "政策", "国家安全", "地缘", "博弈", "中美", "外交", "关税"]},
     {"id": "business-navy", "name": "商务藏青", "primary": "#1f4e79", "accent": null, "image_tone": "深蓝 + 中性灰，冷静、对称、办公真实场景", "topics": ["行业", "企业", "经营", "管理", "战略", "财报", "增长", "客户", "b2b", "营收", "团队", "组织", "职场", "老板", "销售"]},
     {"id": "finance-gold", "name": "金融墨蓝金", "primary": "#1a3d6d", "accent": "#a87b2f", "image_tone": "墨蓝 + 香槟金，稳健、质感、数据图形", "topics": ["金融", "理财", "投资", "银行", "基金", "保险", "股票", "资产", "财富", "利率", "养老金"]},
     {"id": "research-slate", "name": "研究灰蓝", "primary": "#3f5a80", "accent": null, "image_tone": "灰蓝 + 白，简洁图示感、数据感", "topics": ["研究", "报告", "数据", "论文", "原理", "白皮书", "统计", "方法论", "调研", "实验", "指标"]},
@@ -44,7 +44,7 @@
       "signals": ["行业", "企业", "经营", "管理", "战略", "客户", "方法论", "增长", "案例", "财报", "职场"],
       "palette": "business-navy", "text": "#333333",
       "typography": {"font_size": 16, "line_height": 1.8, "letter_spacing": "0.3px", "para_gap": 18},
-      "prefer": {"masthead": ["soft", "rule"], "h2": ["bar", "part", "underline"], "h3": ["color"], "lead": ["muted"], "quote": ["bar"], "card": ["bar"], "cta": ["solid"], "stat": ["big"], "divider": ["line"], "figure": ["frame"], "code": ["soft"], "steps": ["timeline"], "callout": ["soft"], "follow": ["card"], "ending": ["none"]},
+      "prefer": {"masthead": ["poster", "soft", "rule"], "h2": ["hero", "bar", "part", "underline"], "h3": ["color"], "lead": ["guide", "muted"], "quote": ["card", "bar"], "card": ["bar"], "cta": ["solid"], "stat": ["big"], "divider": ["line"], "figure": ["card", "frame"], "code": ["soft"], "steps": ["timeline"], "callout": ["soft"], "follow": ["card"], "ending": ["sign", "none"], "points": ["list"], "compare": ["columns"]},
       "image": "冷静、对称、办公真实场景"
     },
     {
@@ -53,12 +53,12 @@
       "signals": ["ai", "人工智能", "大模型", "智能体", "agent", "技术", "科技", "算法", "算力", "芯片", "产品发布", "编程", "架构", "开源", "模型", "代码", "部署", "命令"],
       "palette": "tech-blue", "text": "#2b2f36",
       "typography": {"font_size": 16, "line_height": 1.85, "letter_spacing": "0.3px", "para_gap": 18},
-      "prefer": {"masthead": ["dark", "soft"], "h2": ["chip", "part", "bar"], "h3": ["dot"], "lead": ["muted"], "quote": ["bar"], "card": ["bar"], "cta": ["solid"], "stat": ["big"], "divider": ["line"], "figure": ["shadow"], "code": ["terminal"], "steps": ["timeline"], "callout": ["soft"], "follow": ["echo"], "ending": ["end"]},
+      "prefer": {"masthead": ["dark", "soft"], "h2": ["chip", "part", "bar"], "h3": ["dot"], "lead": ["guide", "muted"], "quote": ["card", "bar"], "card": ["bar"], "cta": ["solid"], "stat": ["big"], "divider": ["line"], "figure": ["card", "shadow"], "code": ["terminal"], "steps": ["timeline"], "callout": ["soft"], "follow": ["echo"], "ending": ["sign", "end"], "points": ["list"], "compare": ["columns"]},
       "image": "几何、光感、抽象但克制"
     },
     {
       "id": "warm", "name": "温暖叙事", "desc": "大字距、暖底与居中引语，读起来像有人在身边讲故事",
-      "words": ["温暖", "治愈", "有人情味", "讲故事", "温柔", "走心"],
+      "words": ["温暖", "治愈", "有人情味", "讲故事", "温柔", "走心", "经历复盘", "人物案例", "情感随笔"],
       "signals": ["故事", "人物", "成长", "回忆", "父亲", "母亲", "家", "经历", "那年", "陪伴", "感动", "我们"],
       "palette": "story-terracotta", "text": "#3a3330",
       "typography": {"font_size": 17, "line_height": 1.95, "letter_spacing": "0.6px", "para_gap": 20},
@@ -67,20 +67,20 @@
     },
     {
       "id": "fresh", "name": "清爽干货", "desc": "下划线标题、浅底卡片、留白多，适合扫读收藏",
-      "words": ["清爽", "简洁", "小清新", "轻松", "干净"],
+      "words": ["清爽", "简洁", "小清新", "轻松", "干净", "方法干货"],
       "signals": ["清单", "效率", "技巧", "工具", "习惯", "攻略", "干货", "指南", "收藏", "推荐", "合集"],
       "palette": "mint", "text": "#333333",
       "typography": {"font_size": 16, "line_height": 1.85, "letter_spacing": "0.4px", "para_gap": 18},
-      "prefer": {"masthead": ["soft"], "h2": ["underline", "pill", "no"], "h3": ["dot"], "lead": ["muted"], "quote": ["soft"], "card": ["soft"], "cta": ["center"], "stat": ["boxed"], "divider": ["short"], "figure": ["round"], "code": ["soft"], "steps": ["cards"], "callout": ["soft"], "follow": ["card"], "ending": ["none"]},
+      "prefer": {"masthead": ["soft"], "h2": ["underline", "pill", "no"], "h3": ["dot"], "lead": ["muted"], "quote": ["soft"], "card": ["soft"], "cta": ["center"], "stat": ["boxed"], "divider": ["short"], "figure": ["round"], "code": ["soft"], "steps": ["cards"], "callout": ["soft"], "follow": ["card"], "ending": ["none"], "points": ["cards"], "compare": ["stacked"]},
       "image": "干净、明亮、留白多"
     },
     {
       "id": "editorial", "name": "深度评论", "desc": "杂志编辑感：上粗下细的刊头、居中标题、加粗导语",
-      "words": ["深度", "高级感", "杂志感", "有态度", "犀利"],
-      "signals": ["深度", "评论", "观点", "调查", "复盘", "年度", "争议", "反思", "真相", "为什么", "社会"],
+      "words": ["深度", "高级感", "杂志感", "有态度", "犀利", "观点评论", "解读"],
+      "signals": ["深度", "评论", "观点", "调查", "复盘", "年度", "争议", "反思", "真相", "为什么", "社会", "禁令", "政策", "解读", "博弈", "监管", "立场"],
       "palette": "editorial-wine", "text": "#2a2a2a",
       "typography": {"font_size": 16, "line_height": 1.9, "letter_spacing": "0.5px", "para_gap": 20},
-      "prefer": {"masthead": ["rule"], "h2": ["center", "part"], "h3": ["plain"], "lead": ["bold"], "quote": ["center"], "card": ["border"], "cta": ["outline"], "stat": ["big"], "divider": ["short"], "figure": ["plain"], "code": ["soft"], "steps": ["timeline"], "callout": ["line"], "follow": ["minimal"], "ending": ["end"]},
+      "prefer": {"masthead": ["poster", "rule"], "h2": ["hero", "part", "center"], "h3": ["plain"], "lead": ["guide", "bold"], "quote": ["card", "center"], "card": ["border"], "cta": ["outline"], "stat": ["big"], "divider": ["short"], "figure": ["card", "plain"], "code": ["soft"], "steps": ["timeline"], "callout": ["line"], "follow": ["minimal"], "ending": ["sign", "end"], "points": ["list"], "compare": ["columns"]},
       "image": "强对比、纪实、粗颗粒"
     },
     {
@@ -89,12 +89,12 @@
       "signals": ["教程", "步骤", "原理", "数据", "报告", "研究", "第一步", "怎么做", "如何", "配置", "安装", "操作"],
       "palette": "research-slate", "text": "#333333",
       "typography": {"font_size": 16, "line_height": 1.8, "letter_spacing": "0.3px", "para_gap": 16},
-      "prefer": {"masthead": ["soft", "rule"], "h2": ["chip", "no", "bar"], "h3": ["color"], "lead": ["boxed"], "quote": ["bar"], "card": ["border"], "cta": ["outline"], "stat": ["boxed"], "divider": ["line"], "figure": ["frame"], "code": ["soft"], "steps": ["timeline"], "callout": ["soft"], "follow": ["card"], "ending": ["none"]},
+      "prefer": {"masthead": ["soft", "rule"], "h2": ["chip", "no", "bar"], "h3": ["color"], "lead": ["guide", "boxed"], "quote": ["bar"], "card": ["border"], "cta": ["outline"], "stat": ["boxed"], "divider": ["line"], "figure": ["card", "frame"], "code": ["soft"], "steps": ["timeline"], "callout": ["soft"], "follow": ["card"], "ending": ["none"]},
       "image": "简洁图示感、数据感"
     },
     {
       "id": "promo", "name": "活力促销", "desc": "色块标题、大圆角高对比按钮，信息一眼抓住",
-      "words": ["热闹", "促销", "转化", "有冲击力", "活泼"],
+      "words": ["热闹", "促销", "转化", "有冲击力", "活泼", "活动通知"],
       "signals": ["活动", "报名", "限时", "优惠", "福利", "抽奖", "折扣", "新品", "上新", "截止", "席位", "倒计时", "直播"],
       "palette": "promo-red", "text": "#333333",
       "typography": {"font_size": 16, "line_height": 1.8, "letter_spacing": "0.3px", "para_gap": 16},
@@ -121,7 +121,7 @@
     },
     {
       "id": "lifestyle", "name": "生活美学", "desc": "NO. 序号、圆角大图、居中引语，松弛有质感",
-      "words": ["文艺", "质感", "ins风", "松弛", "生活感", "高级"],
+      "words": ["文艺", "质感", "ins风", "松弛", "生活感", "高级", "产品种草"],
       "signals": ["生活", "日常", "周末", "咖啡", "旅行", "城市", "读书", "电影", "美食", "穿搭", "家居", "好物"],
       "palette": "literary-haze", "text": "#383838",
       "typography": {"font_size": 16, "line_height": 1.95, "letter_spacing": "1px", "para_gap": 20},
@@ -136,7 +136,8 @@
       "dark": "深色块 + 栏目徽标 + 短色条：科技、发布",
       "block": "主色满底居中：活动、节庆",
       "rule": "上粗线下细线居中：杂志、评论",
-      "ornament": "居中上下纹饰：国风、节气"
+      "ornament": "居中上下纹饰：国风、节气",
+      "poster": "深色海报：强调色顶条 + 栏目色块 + 大标题 + 双色短条：评论、解读、商业"
     },
     "h2": {
       "_slot": "二级标题（##）",
@@ -148,7 +149,8 @@
       "numeral": "壹贰叁 中文序号居中：国风、节庆（自带编号）",
       "center": "居中上下细线：叙事、评论",
       "block": "主色满底色块：促销、强提醒",
-      "pill": "主色胶囊标签：活动、轻松"
+      "pill": "主色胶囊标签：活动、轻松",
+      "hero": "大号斜体序号 + 标题 + 双色短条：评论、商业、长文（自带编号）"
     },
     "h3": {
       "_slot": "三级标题（###）",
@@ -160,16 +162,18 @@
       "_slot": "导语（首段）",
       "muted": "次要色正常字重",
       "bold": "正文色加粗",
-      "boxed": "浅底框住"
+      "boxed": "浅底框住",
+      "guide": "「导读」标签 + 浅底左粗线：解读、长文首屏"
     },
     "quote": {
       "_slot": "引语（>）",
       "bar": "浅底左线",
       "center": "居中大引号、无底",
-      "soft": "主色浅底圆角"
+      "soft": "主色浅底圆角",
+      "card": "深色金句卡 + 强调色引号：评论、观点的核心句"
     },
     "card": {
-      "_slot": "结论卡（:::card）",
+      "_slot": "结论卡（:::card 标签）",
       "bar": "浅底左线",
       "border": "细描边框",
       "soft": "主色浅底圆角"
@@ -197,7 +201,8 @@
       "plain": "无框",
       "shadow": "圆角阴影",
       "frame": "细边相框",
-      "round": "大圆角"
+      "round": "大圆角",
+      "card": "浅底衬卡 + 强调色图注标记：信息图、截图"
     },
     "code": {
       "_slot": "命令/代码块（:::code）",
@@ -224,7 +229,18 @@
       "_slot": "文末收尾（自动追加）",
       "none": "不加",
       "end": "— END — 小字",
-      "ornament": "居中纹饰"
+      "ornament": "居中纹饰",
+      "sign": "两侧细线 + END：评论、商业"
+    },
+    "points": {
+      "_slot": "要点卡（:::points 标签）",
+      "list": "描边框 + 圆形序号：首屏速览",
+      "cards": "浅底 + 每条一张小卡：清单、干货"
+    },
+    "compare": {
+      "_slot": "对照卡（:::compare 左标题 | 右标题）",
+      "columns": "左右两栏，右栏主色高亮：误解 vs 事实、以前 vs 现在",
+      "stacked": "上下两卡 + 箭头：每条内容较长时"
     }
   }
 }
